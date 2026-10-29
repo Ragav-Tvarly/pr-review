@@ -8,8 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Kbd } from "@/components/kbd";
 import { FileDiff } from "./file-diff";
 import { FileTree } from "./file-tree";
+import { threadKey, type Thread } from "./inline-comments";
 import type { DiffFileItem } from "./types";
-import { markViewed } from "@/lib/github/actions";
+import { ReviewDialog } from "@/components/review-dialog";
+import { markViewed, type DraftThread } from "@/lib/github/actions";
+import type { ReviewComment } from "@/lib/github/pull-request";
 import { cn } from "@/lib/utils";
 
 type Sort = "path" | "importance";
@@ -39,8 +42,67 @@ function subscribeDiffMode(cb: () => void) {
 }
 const HUNK_SELECTOR = "td.diff-line-hunk-content";
 
-export function FilesChanged({ prId, files: initial, canMarkViewed }: { prId: string; repo: string; number: number; files: DiffFileItem[]; canMarkViewed: boolean }) {
+type Props = {
+  prId: string;
+  repo: string;
+  number: number;
+  files: DiffFileItem[];
+  canMarkViewed: boolean;
+  comments: ReviewComment[];
+  isAuthor: boolean;
+};
+
+function groupThreads(comments: ReviewComment[]): Record<string, Record<string, Thread>> {
+  const byFile: Record<string, Record<string, Thread>> = {};
+  for (const c of comments) {
+    if (c.line === null) continue;
+    const key = threadKey(c.side, c.line);
+    const file = (byFile[c.path] ??= {});
+    const t = (file[key] ??= { path: c.path, line: c.line, side: c.side, existing: [], pending: null });
+    t.existing.push(c);
+  }
+  return byFile;
+}
+
+export function FilesChanged({ prId, repo, number, files: initial, canMarkViewed, comments, isAuthor }: Props) {
   const [files, setFiles] = useState(initial);
+  const [threads, setThreads] = useState<Record<string, Record<string, Thread>>>(() => groupThreads(comments));
+  const [reviewOpen, setReviewOpen] = useState(false);
+
+  const pendingThreads: DraftThread[] = useMemo(
+    () => Object.values(threads).flatMap((file) => Object.values(file).filter((t) => t.pending).map((t) => ({ path: t.path, line: t.line, side: t.side, body: t.pending! }))),
+    [threads],
+  );
+  const addComment = useCallback((path: string, line: number, side: "LEFT" | "RIGHT", body: string) => {
+    setThreads((all) => {
+      const file = { ...(all[path] ?? {}) };
+      const key = threadKey(side, line);
+      file[key] = { ...(file[key] ?? { path, line, side, existing: [] }), pending: body };
+      return { ...all, [path]: file };
+    });
+  }, []);
+  const removePending = useCallback((path: string, line: number, side: "LEFT" | "RIGHT") => {
+    setThreads((all) => {
+      const file = { ...(all[path] ?? {}) };
+      const key = threadKey(side, line);
+      const t = file[key];
+      if (!t) return all;
+      if (t.existing.length === 0) delete file[key];
+      else file[key] = { ...t, pending: null };
+      return { ...all, [path]: file };
+    });
+  }, []);
+  const clearPending = useCallback(() => {
+    setThreads((all) => {
+      const next: typeof all = {};
+      for (const [path, file] of Object.entries(all)) {
+        const kept: Record<string, Thread> = {};
+        for (const [k, t] of Object.entries(file)) if (t.existing.length) kept[k] = { ...t, pending: null };
+        if (Object.keys(kept).length) next[path] = kept;
+      }
+      return next;
+    });
+  }, []);
   const split = useSyncExternalStore(subscribeDiffMode, () => readDiffMode() === "split", () => true);
   const [sort, setSort] = useState<Sort>(initial.some((f) => f.importance !== undefined) ? "importance" : "path");
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(initial.filter((f) => !f.noise).map((f) => f.path)));
@@ -215,12 +277,32 @@ export function FilesChanged({ prId, files: initial, canMarkViewed }: { prId: st
             split={split}
             focused={focused?.path === file.path}
             canMarkViewed={canMarkViewed}
+            threads={threads[file.path] ?? EMPTY}
+            onAddComment={(line, side, body) => addComment(file.path, line, side, body)}
+            onRemovePending={(line, side) => removePending(file.path, line, side)}
             onToggleExpanded={() => toggleExpanded(file.path)}
             onToggleViewed={(v) => toggleViewed(file.path, v)}
             onFocus={() => setFocusedIndex(ordered.findIndex((f) => f.path === file.path))}
           />
         ))}
       </div>
+
+      {pendingThreads.length > 0 && (
+        <div role="status" className="fixed inset-x-0 bottom-4 z-20 mx-auto flex w-fit items-center gap-3 rounded-full border border-border bg-card px-4 py-2 shadow-lg">
+          <span className="text-sm">
+            {pendingThreads.length} pending {pendingThreads.length === 1 ? "comment" : "comments"}
+          </span>
+          <Button size="sm" onClick={() => setReviewOpen(true)}>
+            Review changes
+          </Button>
+          <Button size="sm" variant="ghost" onClick={clearPending}>
+            Discard
+          </Button>
+        </div>
+      )}
+      <ReviewDialog open={reviewOpen} onOpenChange={setReviewOpen} repo={repo} number={number} prId={prId} isAuthor={isAuthor} threads={pendingThreads} onSubmitted={clearPending} />
     </div>
   );
 }
+
+const EMPTY: Record<string, Thread> = {};

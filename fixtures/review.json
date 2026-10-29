@@ -1,0 +1,17 @@
+{
+  "v": 1, "pr": 1, "headSha": "0000000000000000000000000000000000000000", "reviewedAt": "2026-10-29T12:00:00Z", "mode": "review",
+  "risk": "high", "score": 62, "verdict": "REQUEST_CHANGES",
+  "summary": "Adds the retailer gate and order flow for the ring configurator. The flow matches the ticket, but the order route writes without an auth check and the discount timing is ambiguous.",
+  "scope": { "skipped": ["package-lock.json"], "skimmed": ["apps/admin/messages/*.json"], "note": "97 files; auth, Firestore writes and shared packages were read fully." },
+  "findings": [
+    { "id": "C1", "severity": "critical", "category": "Security", "path": "README.md", "line": 3, "side": "RIGHT", "title": "Order route writes orders without checking the retailer is approved", "fix": "Load the retailer and return 403 unless status is approved before writing", "gate": "auto-fix", "status": "open" },
+    { "id": "W1", "severity": "warning", "category": "Flow/Functional", "path": "README.md", "line": 5, "side": "RIGHT", "title": "Markup applies before tax; the ticket does not say which", "fix": "", "gate": "ask", "question": "Should the retailer markup apply before or after tax?", "options": ["Before tax", "After tax"], "status": "open" },
+    { "id": "W2", "severity": "warning", "category": "Firestore", "path": "README.md", "line": 7, "side": "RIGHT", "title": "listRetailersByStatus has no limit", "fix": "Add .limit(200) and paginate", "gate": "auto-fix", "status": "open" },
+    { "id": "S1", "severity": "suggestion", "category": "Code Quality", "path": "README.md", "line": 9, "side": "RIGHT", "title": "normaliseRetailerMarkup duplicates clampPercent from utils", "fix": "Reuse clampPercent", "gate": "skip", "status": "open" }
+  ],
+  "files": [
+    { "path": "README.md", "importance": 92, "severity": "critical", "reason": "server route with Firestore writes and no auth", "noise": false },
+    { "path": ".env.example", "importance": 10, "severity": "none", "reason": "env documentation only", "noise": false }
+  ],
+  "rounds": [ { "n": 1, "headSha": "0000000000000000000000000000000000000000", "score": 62, "fixed": [], "at": "2026-10-29T12:00:00Z" } ]
+}

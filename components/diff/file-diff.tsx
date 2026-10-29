@@ -2,10 +2,11 @@
 
 import { forwardRef, useEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
-import { DiffModeEnum, DiffView, getLang } from "@git-diff-view/react";
+import { DiffModeEnum, DiffView, SplitSide, getLang } from "@git-diff-view/react";
 import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { InlineCommentForm, InlineThread, type Thread } from "./inline-comments";
 import type { DiffFileItem } from "./types";
 import { fileAnchor } from "./types";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,10 @@ export type FileDiffProps = {
   split: boolean;
   focused: boolean;
   canMarkViewed: boolean;
+  /** existing + pending inline threads for this file, keyed "side:line" */
+  threads: Record<string, Thread>;
+  onAddComment: (line: number, side: "LEFT" | "RIGHT", body: string) => void;
+  onRemovePending: (line: number, side: "LEFT" | "RIGHT") => void;
   onToggleExpanded: () => void;
   onToggleViewed: (viewed: boolean) => void;
   onFocus: () => void;
@@ -35,8 +40,16 @@ function withFileHeaders(file: DiffFileItem): string {
   return `--- ${oldName}\n+++ ${newName}\n${file.patch ?? ""}`;
 }
 
+/** Map "side:line" threads onto the viewer's {oldFile|newFile}[line] shape. */
+function extendData(threads: Record<string, Thread>) {
+  const oldFile: Record<string, { data: Thread }> = {};
+  const newFile: Record<string, { data: Thread }> = {};
+  for (const t of Object.values(threads)) (t.side === "LEFT" ? oldFile : newFile)[String(t.line)] = { data: t };
+  return { oldFile, newFile };
+}
+
 export const FileDiff = forwardRef<HTMLDivElement, FileDiffProps>(function FileDiff(
-  { file, expanded, split, focused, canMarkViewed, onToggleExpanded, onToggleViewed, onFocus },
+  { file, expanded, split, focused, canMarkViewed, threads, onAddComment, onRemovePending, onToggleExpanded, onToggleViewed, onFocus },
   ref,
 ) {
   const { resolvedTheme } = useTheme();
@@ -130,7 +143,18 @@ export const FileDiff = forwardRef<HTMLDivElement, FileDiffProps>(function FileD
             diffViewTheme={resolvedTheme === "dark" ? "dark" : "light"}
             diffViewHighlight
             diffViewFontSize={12}
-            diffViewAddWidget={false}
+            diffViewAddWidget
+            renderWidgetLine={({ lineNumber, side, onClose }) => (
+              <InlineCommentForm
+                onCancel={onClose}
+                onSubmit={(body) => {
+                  onAddComment(lineNumber, side === SplitSide.old ? "LEFT" : "RIGHT", body);
+                  onClose();
+                }}
+              />
+            )}
+            extendData={extendData(threads)}
+            renderExtendLine={({ data }) => <InlineThread thread={data as Thread} onRemovePending={() => onRemovePending((data as Thread).line, (data as Thread).side)} />}
           />
         )}
         {expanded && !near && file.patch && <div className="h-24 animate-pulse bg-muted/30" aria-hidden="true" />}
