@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { graphql, GitHubError } from "./client";
+import { graphql, rest, GitHubError } from "./client";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -23,4 +23,65 @@ export async function markViewed(prId: string, path: string, viewed: boolean): P
 
 export async function revalidatePr(repo: string, number: number): Promise<void> {
   revalidatePath(`/pr/${repo}/${number}`, "layout");
+}
+
+/** Reply on an inline review-comment thread (used for answering "ask" findings). */
+export async function replyToReviewComment(repo: string, number: number, commentId: number, body: string): Promise<ActionResult> {
+  const text = body.trim();
+  if (!text) return { ok: false, error: "Write a reply first" };
+  try {
+    await rest(`/repos/${repo}/pulls/${number}/comments/${commentId}/replies`, { method: "POST", body: JSON.stringify({ body: text }) });
+    revalidatePath(`/pr/${repo}/${number}`, "layout");
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export type ReviewEvent = "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
+export type DraftThread = { path: string; line: number; side: "LEFT" | "RIGHT"; body: string };
+
+/** One GraphQL call submits the review body, the event and every pending inline comment. */
+export async function submitReview(repo: string, number: number, prId: string, event: ReviewEvent, body: string, threads: DraftThread[]): Promise<ActionResult> {
+  if (event !== "APPROVE" && !body.trim() && threads.length === 0) return { ok: false, error: "Write a comment or add an inline comment first" };
+  try {
+    await graphql(
+      `mutation($input: AddPullRequestReviewInput!) { addPullRequestReview(input: $input) { pullRequestReview { id } } }`,
+      { input: { pullRequestId: prId, event, body: body.trim() || undefined, threads: threads.map((t) => ({ path: t.path, line: t.line, side: t.side, body: t.body })) } },
+    );
+    revalidatePath(`/pr/${repo}/${number}`, "layout");
+    revalidatePath("/");
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export type MergeMethod = "MERGE" | "SQUASH" | "REBASE";
+
+export async function mergePR(repo: string, number: number, prId: string, method: MergeMethod, expectedHeadOid: string): Promise<ActionResult> {
+  try {
+    await graphql(`mutation($input: MergePullRequestInput!) { mergePullRequest(input: $input) { pullRequest { merged } } }`, {
+      input: { pullRequestId: prId, mergeMethod: method, expectedHeadOid },
+    });
+    revalidatePath(`/pr/${repo}/${number}`, "layout");
+    revalidatePath("/");
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function setDraft(repo: string, number: number, prId: string, draft: boolean): Promise<ActionResult> {
+  const mutation = draft
+    ? `mutation($input: ConvertPullRequestToDraftInput!) { convertPullRequestToDraft(input: $input) { pullRequest { isDraft } } }`
+    : `mutation($input: MarkPullRequestReadyForReviewInput!) { markPullRequestReadyForReview(input: $input) { pullRequest { isDraft } } }`;
+  try {
+    await graphql(mutation, { input: { pullRequestId: prId } });
+    revalidatePath(`/pr/${repo}/${number}`, "layout");
+    revalidatePath("/");
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
 }

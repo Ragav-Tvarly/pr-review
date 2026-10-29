@@ -122,7 +122,8 @@ export function FilesChanged({ prId, files: initial, canMarkViewed }: { prId: st
           const hunks = [...document.querySelectorAll<HTMLElement>(HUNK_SELECTOR)].filter((h) => h.offsetParent !== null);
           const y = window.scrollY + 120;
           const next = e.key === "n" ? hunks.find((h) => h.getBoundingClientRect().top + window.scrollY > y + 4) : [...hunks].reverse().find((h) => h.getBoundingClientRect().top + window.scrollY < y - 4);
-          next?.scrollIntoView({ block: "start", behavior: "smooth" });
+          if (next) next.scrollIntoView({ block: "start", behavior: "smooth" });
+          else move(e.key === "n" ? 1 : -1); // diffs mount lazily, so fall through to the next file
           return;
         }
         case "v":

@@ -19,3 +19,9 @@ export function devToken(): string | undefined {
   if (process.env.NODE_ENV === "production") return undefined;
   return process.env.GITHUB_DEV_TOKEN || undefined;
 }
+
+/** Quality score a PR must reach before the fix loop stops (0–100). */
+export function scoreBar(): number {
+  const n = Number(process.env.REVIEW_SCORE_BAR);
+  return Number.isFinite(n) && n > 0 && n <= 100 ? n : 80;
+}

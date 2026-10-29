@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
+import { PrActions } from "@/components/pr-actions";
 import { PrHeader } from "@/components/pr-header";
 import { PrTabsNav } from "@/components/pr-tabs-nav";
 import { viewer } from "@/lib/github/client";
@@ -27,7 +28,7 @@ export default async function PrLayout({ params, children }: { params: Params; c
       <SiteHeader viewer={me} />
       <div className="border-b border-border bg-card/40">
         <div className="mx-auto w-full max-w-7xl px-4 pt-6">
-          <PrHeader pr={pr} />
+          <PrHeader pr={pr} actions={<PrActions pr={pr} viewer={me.login} canPush={me.canPush} />} />
           <PrTabsNav pr={pr} />
         </div>
       </div>

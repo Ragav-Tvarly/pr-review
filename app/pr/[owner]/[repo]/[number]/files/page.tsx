@@ -9,11 +9,18 @@ export default async function FilesPage({ params }: { params: Params }) {
   const n = Number(number);
   const [pr, patches] = await Promise.all([getPullRequest(owner, repo, n), getFilePatches(owner, repo, n)]);
   const viewed = new Map<string, PrFile>(pr!.files.map((f) => [f.path, f]));
-  const files = patches.map((p) => ({
-    ...p,
-    viewed: viewed.get(p.path)?.viewed === "VIEWED",
-    noise: isNoisePath(p.path),
-    large: isLargeFile(p.changes),
-  }));
+  const scores = new Map((pr!.review?.stale ? [] : (pr!.review?.review.files ?? [])).map((f) => [f.path, f]));
+  const files = patches.map((p) => {
+    const score = scores.get(p.path);
+    return {
+      ...p,
+      viewed: viewed.get(p.path)?.viewed === "VIEWED",
+      noise: isNoisePath(p.path) || Boolean(score?.noise),
+      large: isLargeFile(p.changes),
+      importance: score?.importance,
+      severity: score?.severity,
+      reason: score?.reason,
+    };
+  });
   return <FilesChanged prId={pr!.id} repo={pr!.repo} number={pr!.number} files={files} canMarkViewed={!!viewed.size} />;
 }

@@ -3,6 +3,7 @@ import { graphql, rest } from "./client";
 import { PULL_REQUEST, PULL_REQUEST_FILES_PAGE } from "./queries";
 import type { CheckState, ReviewDecision } from "./pulls";
 import { riskFromLabels, type Risk } from "@/lib/review/types";
+import { findReview, type ParsedReview } from "@/lib/review/parse";
 
 export type ViewedState = "VIEWED" | "UNVIEWED" | "DISMISSED";
 export type ChangeType = "ADDED" | "DELETED" | "MODIFIED" | "RENAMED" | "COPIED" | "CHANGED";
@@ -49,6 +50,8 @@ export type PrDetail = {
   latestReviews: { author: string; avatarUrl: string; state: string; submittedAt: string; url: string }[];
   files: PrFile[];
   comments: { id: number; author: string; body: string; createdAt: string; url: string }[];
+  /** Latest bot review parsed from the sticky comment, if any. */
+  review: ParsedReview | null;
   commits: Commit[];
   commitCount: number;
   checks: { state: CheckState; contexts: CheckContext[] };
@@ -153,6 +156,8 @@ export const getPullRequest = cache(async (owner: string, name: string, number: 
   if (repo.mergeCommitAllowed) mergeMethods.push("MERGE");
   if (repo.rebaseMergeAllowed) mergeMethods.push("REBASE");
 
+  const comments = pr.comments.nodes.map((c) => ({ id: c.databaseId, author: c.author?.login ?? "", body: c.body, createdAt: c.createdAt, url: c.url }));
+
   return {
     id: pr.id,
     number: pr.number,
@@ -186,7 +191,8 @@ export const getPullRequest = cache(async (owner: string, name: string, number: 
       url: r.url,
     })),
     files: files.map((f) => ({ path: f.path, additions: f.additions, deletions: f.deletions, changeType: f.changeType, viewed: f.viewerViewedState })),
-    comments: pr.comments.nodes.map((c) => ({ id: c.databaseId, author: c.author?.login ?? "", body: c.body, createdAt: c.createdAt, url: c.url })),
+    comments,
+    review: findReview(comments, pr.headRefOid),
     commits: pr.commits.nodes.map(({ commit: c }) => ({
       oid: c.oid,
       abbreviatedOid: c.abbreviatedOid,
@@ -240,6 +246,33 @@ export const getFilePatches = cache(async (owner: string, name: string, number: 
         changes: f.changes,
         patch: f.patch ?? null,
         blobUrl: f.blob_url,
+      })),
+    );
+    if (batch.length < 100) break;
+  }
+  return out;
+});
+
+export type ReviewComment = { id: number; path: string; line: number | null; side: "LEFT" | "RIGHT"; body: string; author: string; avatarUrl: string; createdAt: string; url: string; inReplyTo: number | null };
+
+/** Existing inline review comments (all reviewers, including the bot), newest last. */
+export const getReviewComments = cache(async (owner: string, name: string, number: number): Promise<ReviewComment[]> => {
+  type Raw = { id: number; path: string; line: number | null; original_line: number | null; side: "LEFT" | "RIGHT"; body: string; user: { login: string; avatar_url: string } | null; created_at: string; html_url: string; in_reply_to_id?: number };
+  const out: ReviewComment[] = [];
+  for (let page = 1; page <= 10; page++) {
+    const batch = await rest<Raw[]>(`/repos/${owner}/${name}/pulls/${number}/comments?per_page=100&page=${page}`);
+    out.push(
+      ...batch.map((c) => ({
+        id: c.id,
+        path: c.path,
+        line: c.line ?? c.original_line,
+        side: c.side,
+        body: c.body,
+        author: c.user?.login ?? "",
+        avatarUrl: c.user?.avatar_url ?? "",
+        createdAt: c.created_at,
+        url: c.html_url,
+        inReplyTo: c.in_reply_to_id ?? null,
       })),
     );
     if (batch.length < 100) break;
