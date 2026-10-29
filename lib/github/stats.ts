@@ -16,7 +16,7 @@ const SEARCH = /* GraphQL */ `
           mergedAt
           mergedBy { login avatarUrl }
           author { login avatarUrl }
-          reviews(first: 30) { nodes { author { login avatarUrl } state submittedAt } }
+          reviews(first: 30) { nodes { author { __typename login avatarUrl } state submittedAt } }
           comments(last: 30) { nodes { body createdAt } }
         }
       }
@@ -31,7 +31,7 @@ type Node = {
   mergedAt: string | null;
   mergedBy: { login: string; avatarUrl: string } | null;
   author: { login: string; avatarUrl: string } | null;
-  reviews: { nodes: { author: { login: string; avatarUrl: string } | null; state: string; submittedAt: string }[] };
+  reviews: { nodes: { author: { __typename: string; login: string; avatarUrl: string } | null; state: string; submittedAt: string }[] };
   comments: { nodes: { body: string; createdAt: string }[] };
 };
 
@@ -44,7 +44,7 @@ export function weekStart(now = new Date()): Date {
 }
 
 export async function getWeekStats(): Promise<WeekStats> {
-  return cachedRead(["week", ...repos()], ["pr-list"], (token) => fetchWeekStats(token), 300);
+  return cachedRead(["week", "v2", ...repos()], ["pr-list"], (token) => fetchWeekStats(token), 300);
 }
 
 async function fetchWeekStats(token: string): Promise<WeekStats> {
@@ -75,7 +75,7 @@ async function fetchWeekStats(token: string): Promise<WeekStats> {
       }
       for (const r of pr.reviews.nodes) {
         if (!r.author || r.submittedAt < since.toISOString() || r.author.login === pr.author?.login) continue;
-        if (r.author.login.endsWith("[bot]") || r.author.login === "tvar-review-bot") continue;
+        if (r.author.__typename === "Bot" || r.author.login.endsWith("[bot]") || r.author.login === "tvar-review-bot") continue;
         reviews += 1;
         const p = person(r.author.login, r.author.avatarUrl);
         p.reviews += 1;
