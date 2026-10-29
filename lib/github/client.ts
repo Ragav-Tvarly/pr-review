@@ -1,0 +1,90 @@
+import { headers } from "next/headers";
+import { getToken } from "next-auth/jwt";
+import { devToken, primaryRepo } from "@/lib/config";
+
+const GITHUB_API = "https://api.github.com";
+
+export class GitHubError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "GitHubError";
+  }
+}
+
+export type Viewer = { login: string; canPush: boolean };
+
+/** The signed-in user's GitHub token, read server-side from the Auth.js cookie. */
+async function userToken(): Promise<string> {
+  const dev = devToken();
+  if (dev) return dev;
+  const token = await getToken({
+    req: { headers: await headers() },
+    secret: process.env.AUTH_SECRET,
+    secureCookie: process.env.NODE_ENV === "production",
+  });
+  if (!token?.accessToken) throw new GitHubError(401, "Not signed in");
+  return token.accessToken;
+}
+
+export async function viewer(): Promise<Viewer> {
+  if (devToken()) {
+    const [me, repo] = await Promise.all([
+      rest<{ login: string }>("/user"),
+      rest<{ permissions?: { push?: boolean } }>(`/repos/${primaryRepo()}`),
+    ]);
+    return { login: me.login, canPush: Boolean(repo.permissions?.push) };
+  }
+  const token = await getToken({
+    req: { headers: await headers() },
+    secret: process.env.AUTH_SECRET,
+    secureCookie: process.env.NODE_ENV === "production",
+  });
+  if (!token?.login) throw new GitHubError(401, "Not signed in");
+  return { login: token.login, canPush: token.canPush ?? false };
+}
+
+export async function rest<T>(path: string, init: RequestInit & { accept?: string } = {}): Promise<T> {
+  const token = await userToken();
+  const res = await fetch(`${GITHUB_API}${path}`, {
+    ...init,
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: init.accept ?? "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      ...(init.body ? { "Content-Type": "application/json" } : {}),
+      ...init.headers,
+    },
+  });
+  if (!res.ok) throw new GitHubError(res.status, await errorMessage(res));
+  if (res.status === 204) return undefined as T;
+  if (init.accept && !init.accept.includes("json")) return (await res.text()) as T;
+  return (await res.json()) as T;
+}
+
+export async function graphql<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
+  const token = await userToken();
+  const res = await fetch(`${GITHUB_API}/graphql`, {
+    method: "POST",
+    cache: "no-store",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ query, variables }),
+  });
+  if (!res.ok) throw new GitHubError(res.status, await errorMessage(res));
+  const json = (await res.json()) as { data?: T; errors?: { message: string }[] };
+  if (json.errors?.length) throw new GitHubError(400, json.errors.map((e) => e.message).join("; "));
+  if (!json.data) throw new GitHubError(500, "Empty GraphQL response");
+  return json.data;
+}
+
+async function errorMessage(res: Response): Promise<string> {
+  try {
+    const json = (await res.json()) as { message?: string };
+    return json.message ?? res.statusText;
+  } catch {
+    return res.statusText;
+  }
+}
