@@ -28,8 +28,8 @@ export default async function PrLayout({ params, children }: { params: Params; c
       <SiteHeader viewer={me} />
       <div className="border-b border-border bg-card/40">
         <div className="mx-auto w-full max-w-7xl px-4 pt-6">
-          <PrHeader pr={pr} actions={<PrActions pr={pr} viewer={me.login} canPush={me.canPush} />} />
-          <PrTabsNav pr={pr} />
+          <PrHeader pr={pr} />
+          <PrTabsNav pr={pr} actions={<PrActions pr={pr} viewer={me.login} canPush={me.canPush} />} />
         </div>
       </div>
       <main className="mx-auto w-full max-w-7xl px-4 py-6">{children}</main>

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Kbd } from "@/components/kbd";
-import { FileDiff } from "./file-diff";
+import { FileDiff, type FileDiffProps } from "./file-diff";
 import { FileTree } from "./file-tree";
 import { threadKey, type Thread } from "./inline-comments";
 import type { DiffFileItem } from "./types";
@@ -153,6 +153,8 @@ export function FilesChanged({ prId, repo, number, files: initial, canMarkViewed
     [prId, repo, number],
   );
 
+  const focusPath = useCallback((path: string) => setFocusedIndex(ordered.findIndex((f) => f.path === path)), [ordered]);
+
   const toggleExpanded = useCallback((path: string) => {
     setExpanded((s) => {
       const next = new Set(s);
@@ -209,6 +211,22 @@ export function FilesChanged({ prId, repo, number, files: initial, canMarkViewed
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [ordered, focusedIndex, focused, scrollTo, toggleViewed, canMarkViewed, split]);
+
+  // Per-path handlers, memoised so memo(FileDiff) sees stable props between unrelated updates.
+  const handlers = useMemo(() => {
+    const m = new Map<string, Pick<FileDiffProps, "onAddComment" | "onRemovePending" | "onToggleExpanded" | "onToggleViewed" | "onFocus">>();
+    for (const f of initial) {
+      const path = f.path;
+      m.set(path, {
+        onAddComment: (line, side, body) => addComment(path, line, side, body),
+        onRemovePending: (line, side) => removePending(path, line, side),
+        onToggleExpanded: () => toggleExpanded(path),
+        onToggleViewed: (v) => toggleViewed(path, v),
+        onFocus: () => focusPath(path),
+      });
+    }
+    return m;
+  }, [initial, addComment, removePending, toggleExpanded, toggleViewed, focusPath]);
 
   const allExpanded = ordered.every((f) => expanded.has(f.path));
 
@@ -278,11 +296,7 @@ export function FilesChanged({ prId, repo, number, files: initial, canMarkViewed
             focused={focused?.path === file.path}
             canMarkViewed={canMarkViewed}
             threads={threads[file.path] ?? EMPTY}
-            onAddComment={(line, side, body) => addComment(file.path, line, side, body)}
-            onRemovePending={(line, side) => removePending(file.path, line, side)}
-            onToggleExpanded={() => toggleExpanded(file.path)}
-            onToggleViewed={(v) => toggleViewed(file.path, v)}
-            onFocus={() => setFocusedIndex(ordered.findIndex((f) => f.path === file.path))}
+            {...handlers.get(file.path)!}
           />
         ))}
       </div>

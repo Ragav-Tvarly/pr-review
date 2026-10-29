@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useRef, useState } from "react";
+import { forwardRef, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 import { DiffModeEnum, DiffView, SplitSide, getLang } from "@git-diff-view/react";
 import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
@@ -48,7 +48,7 @@ function extendData(threads: Record<string, Thread>) {
   return { oldFile, newFile };
 }
 
-export const FileDiff = forwardRef<HTMLDivElement, FileDiffProps>(function FileDiff(
+export const FileDiff = memo(forwardRef<HTMLDivElement, FileDiffProps>(function FileDiff(
   { file, expanded, split, focused, canMarkViewed, threads, onAddComment, onRemovePending, onToggleExpanded, onToggleViewed, onFocus },
   ref,
 ) {
@@ -77,6 +77,34 @@ export const FileDiff = forwardRef<HTMLDivElement, FileDiffProps>(function FileD
   }, [near]);
 
   const showDiff = expanded && near && file.patch && (!file.large || forceLarge);
+
+  // The viewer re-parses the diff whenever `data` changes identity, so keep it stable per patch.
+  const data = useMemo(
+    () => ({
+      oldFile: { fileName: file.previousPath ?? file.path, fileLang: getLang(file.previousPath ?? file.path) },
+      newFile: { fileName: file.path, fileLang: getLang(file.path) },
+      hunks: [withFileHeaders(file)],
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [file.path, file.previousPath, file.patch, file.status],
+  );
+  const extend = useMemo(() => extendData(threads), [threads]);
+  const renderWidget = useCallback(
+    ({ lineNumber, side, onClose }: { lineNumber: number; side: SplitSide; onClose: () => void }) => (
+      <InlineCommentForm
+        onCancel={onClose}
+        onSubmit={(body) => {
+          onAddComment(lineNumber, side === SplitSide.old ? "LEFT" : "RIGHT", body);
+          onClose();
+        }}
+      />
+    ),
+    [onAddComment],
+  );
+  const renderExtend = useCallback(
+    ({ data }: { data: Thread }) => <InlineThread thread={data} onRemovePending={() => onRemovePending(data.line, data.side)} />,
+    [onRemovePending],
+  );
 
   return (
     <section
@@ -133,32 +161,20 @@ export const FileDiff = forwardRef<HTMLDivElement, FileDiffProps>(function FileD
           </p>
         )}
         {showDiff && (
-          <DiffView
-            data={{
-              oldFile: { fileName: file.previousPath ?? file.path, fileLang: getLang(file.previousPath ?? file.path) },
-              newFile: { fileName: file.path, fileLang: getLang(file.path) },
-              hunks: [withFileHeaders(file)],
-            }}
+          <DiffView<Thread>
+            data={data}
             diffViewMode={split ? DiffModeEnum.Split : DiffModeEnum.Unified}
             diffViewTheme={resolvedTheme === "dark" ? "dark" : "light"}
             diffViewHighlight
             diffViewFontSize={12}
             diffViewAddWidget
-            renderWidgetLine={({ lineNumber, side, onClose }) => (
-              <InlineCommentForm
-                onCancel={onClose}
-                onSubmit={(body) => {
-                  onAddComment(lineNumber, side === SplitSide.old ? "LEFT" : "RIGHT", body);
-                  onClose();
-                }}
-              />
-            )}
-            extendData={extendData(threads)}
-            renderExtendLine={({ data }) => <InlineThread thread={data as Thread} onRemovePending={() => onRemovePending((data as Thread).line, (data as Thread).side)} />}
+            renderWidgetLine={renderWidget}
+            extendData={extend}
+            renderExtendLine={renderExtend}
           />
         )}
         {expanded && !near && file.patch && <div className="h-24 animate-pulse bg-muted/30" aria-hidden="true" />}
       </div>
     </section>
   );
-});
+}));

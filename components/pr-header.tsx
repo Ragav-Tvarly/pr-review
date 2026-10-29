@@ -6,7 +6,7 @@ import type { PrDetail } from "@/lib/github/pull-request";
 import { timeAgo, utcStamp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-export function PrHeader({ pr, actions }: { pr: PrDetail; actions?: React.ReactNode }) {
+export function PrHeader({ pr }: { pr: PrDetail }) {
   return (
     <div className="space-y-3">
       <Link href="/" className="inline-flex items-center gap-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground">
@@ -51,7 +51,6 @@ export function PrHeader({ pr, actions }: { pr: PrDetail; actions?: React.ReactN
             </a>
           </p>
         </div>
-        {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
       </div>
     </div>
   );
