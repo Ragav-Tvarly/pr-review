@@ -1,4 +1,4 @@
-import { graphql } from "./client";
+import { cachedRead, graphql } from "./client";
 import { OPEN_PULL_REQUESTS } from "./queries";
 import { repos } from "@/lib/config";
 import { riskFromLabels, type Risk } from "@/lib/review/types";
@@ -54,11 +54,17 @@ type OpenPullRequestsData = {
   } | null;
 };
 
+export const PR_LIST_TAG = "pr-list";
+
 export async function listOpenPRs(): Promise<PrSummary[]> {
+  return cachedRead(["list", ...repos()], [PR_LIST_TAG], (token) => fetchOpenPRs(token));
+}
+
+async function fetchOpenPRs(token: string): Promise<PrSummary[]> {
   const perRepo = await Promise.all(
     repos().map(async (repo) => {
       const [owner, name] = repo.split("/");
-      const data = await graphql<OpenPullRequestsData>(OPEN_PULL_REQUESTS, { owner, name });
+      const data = await graphql<OpenPullRequestsData>(OPEN_PULL_REQUESTS, { owner, name }, token);
       const nodes = data.repository?.pullRequests.nodes ?? [];
       return nodes.map((pr): PrSummary => {
         const labels = pr.labels.nodes;

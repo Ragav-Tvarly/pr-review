@@ -143,14 +143,14 @@ export function FilesChanged({ prId, repo, number, files: initial, canMarkViewed
         return next;
       });
       startTransition(async () => {
-        const res = await markViewed(prId, path, viewed);
+        const res = await markViewed(repo, number, prId, path, viewed);
         if (!res.ok) {
           setFiles((fs) => fs.map((f) => (f.path === path ? { ...f, viewed: !viewed } : f)));
           toast.error(`Could not update viewed state: ${res.error}`);
         }
       });
     },
-    [prId],
+    [prId, repo, number],
   );
 
   const toggleExpanded = useCallback((path: string) => {

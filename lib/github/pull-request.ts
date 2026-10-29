@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { graphql, rest } from "./client";
+import { cachedRead, graphql, rest } from "./client";
 import { PULL_REQUEST, PULL_REQUEST_FILES_PAGE } from "./queries";
 import type { CheckState, ReviewDecision } from "./pulls";
 import { riskFromLabels, type Risk } from "@/lib/review/types";
@@ -129,9 +129,17 @@ function toContext(node: CheckNode): CheckContext {
   return { name: node.name, state, url: node.detailsUrl };
 }
 
-/** Cached per request so the layout and the page share one GraphQL call. */
-export const getPullRequest = cache(async (owner: string, name: string, number: number): Promise<PrDetail | null> => {
-  const data = await graphql<PullRequestData>(PULL_REQUEST, { owner, name, number });
+export function prTag(repo: string, number: number): string {
+  return `pr:${repo}:${number}`;
+}
+
+/** Cached per request (react cache) and for 30s across requests per user (unstable_cache). */
+export const getPullRequest = cache((owner: string, name: string, number: number): Promise<PrDetail | null> =>
+  cachedRead(["pr", owner, name, String(number)], [prTag(`${owner}/${name}`, number)], (token) => fetchPullRequest(token, owner, name, number)),
+);
+
+async function fetchPullRequest(token: string, owner: string, name: string, number: number): Promise<PrDetail | null> {
+  const data = await graphql<PullRequestData>(PULL_REQUEST, { owner, name, number }, token);
   const repo = data.repository;
   const pr = repo?.pullRequest;
   if (!repo || !pr) return null;
@@ -142,6 +150,7 @@ export const getPullRequest = cache(async (owner: string, name: string, number: 
     const more = await graphql<{ repository: { pullRequest: { files: NonNullable<PullRequestData["repository"]>["pullRequest"] extends infer P ? (P extends { files: infer F } ? F : never) : never } } }>(
       PULL_REQUEST_FILES_PAGE,
       { owner, name, number, after: page.endCursor },
+      token,
     );
     const f = more.repository.pullRequest.files;
     if (!f) break;
@@ -206,7 +215,7 @@ export const getPullRequest = cache(async (owner: string, name: string, number: 
     checks: { state: last?.state ?? null, contexts: (last?.contexts.nodes ?? []).map(toContext) },
     mergeMethods,
   };
-});
+}
 
 export type FilePatch = {
   path: string;
@@ -232,10 +241,14 @@ type RestFile = {
 };
 
 /** Per-file patches from REST, already split per file (so no diff parser). Paginates past 100 files. */
-export const getFilePatches = cache(async (owner: string, name: string, number: number): Promise<FilePatch[]> => {
+export const getFilePatches = cache((owner: string, name: string, number: number): Promise<FilePatch[]> =>
+  cachedRead(["files", owner, name, String(number)], [prTag(`${owner}/${name}`, number)], (token) => fetchFilePatches(token, owner, name, number), 120),
+);
+
+async function fetchFilePatches(token: string, owner: string, name: string, number: number): Promise<FilePatch[]> {
   const out: FilePatch[] = [];
   for (let page = 1; page <= 30; page++) {
-    const batch = await rest<RestFile[]>(`/repos/${owner}/${name}/pulls/${number}/files?per_page=100&page=${page}`);
+    const batch = await rest<RestFile[]>(`/repos/${owner}/${name}/pulls/${number}/files?per_page=100&page=${page}`, { token });
     out.push(
       ...batch.map((f) => ({
         path: f.filename,
@@ -251,16 +264,20 @@ export const getFilePatches = cache(async (owner: string, name: string, number: 
     if (batch.length < 100) break;
   }
   return out;
-});
+}
 
 export type ReviewComment = { id: number; path: string; line: number | null; side: "LEFT" | "RIGHT"; body: string; author: string; avatarUrl: string; createdAt: string; url: string; inReplyTo: number | null };
 
 /** Existing inline review comments (all reviewers, including the bot), newest last. */
-export const getReviewComments = cache(async (owner: string, name: string, number: number): Promise<ReviewComment[]> => {
+export const getReviewComments = cache((owner: string, name: string, number: number): Promise<ReviewComment[]> =>
+  cachedRead(["review-comments", owner, name, String(number)], [prTag(`${owner}/${name}`, number)], (token) => fetchReviewComments(token, owner, name, number)),
+);
+
+async function fetchReviewComments(token: string, owner: string, name: string, number: number): Promise<ReviewComment[]> {
   type Raw = { id: number; path: string; line: number | null; original_line: number | null; side: "LEFT" | "RIGHT"; body: string; user: { login: string; avatar_url: string } | null; created_at: string; html_url: string; in_reply_to_id?: number };
   const out: ReviewComment[] = [];
   for (let page = 1; page <= 10; page++) {
-    const batch = await rest<Raw[]>(`/repos/${owner}/${name}/pulls/${number}/comments?per_page=100&page=${page}`);
+    const batch = await rest<Raw[]>(`/repos/${owner}/${name}/pulls/${number}/comments?per_page=100&page=${page}`, { token });
     out.push(
       ...batch.map((c) => ({
         id: c.id,
@@ -278,4 +295,4 @@ export const getReviewComments = cache(async (owner: string, name: string, numbe
     if (batch.length < 100) break;
   }
   return out;
-});
+}

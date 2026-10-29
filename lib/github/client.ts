@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { headers } from "next/headers";
 import { getToken } from "next-auth/jwt";
 import { devToken, primaryRepo } from "@/lib/config";
@@ -29,13 +30,15 @@ async function userToken(): Promise<string> {
   return token.accessToken;
 }
 
+let devViewer: Promise<Viewer> | undefined;
+
 export async function viewer(): Promise<Viewer> {
   if (devToken()) {
-    const [me, repo] = await Promise.all([
+    devViewer ??= Promise.all([
       rest<{ login: string }>("/user"),
       rest<{ permissions?: { push?: boolean } }>(`/repos/${primaryRepo()}`),
-    ]);
-    return { login: me.login, canPush: Boolean(repo.permissions?.push) };
+    ]).then(([me, repo]) => ({ login: me.login, canPush: Boolean(repo.permissions?.push) }));
+    return devViewer;
   }
   const token = await getToken({
     req: { headers: await headers() },
@@ -46,8 +49,19 @@ export async function viewer(): Promise<Viewer> {
   return { login: token.login, canPush: token.canPush ?? false };
 }
 
-export async function rest<T>(path: string, init: RequestInit & { accept?: string } = {}): Promise<T> {
+/**
+ * Cache a GitHub read for a short while, per signed-in user, across requests. The token is resolved
+ * here (outside the cache scope) and bound into the function; only the login goes into the cache key.
+ * Mutations call revalidateTag(tag) so the next read is fresh.
+ */
+export async function cachedRead<T>(keyParts: string[], tags: string[], fn: (token: string) => Promise<T>, revalidate = 30): Promise<T> {
   const token = await userToken();
+  const { login } = await viewer();
+  return unstable_cache(() => fn(token), ["gh", login, ...keyParts], { revalidate, tags })();
+}
+
+export async function rest<T>(path: string, init: RequestInit & { accept?: string; token?: string } = {}): Promise<T> {
+  const token = init.token ?? (await userToken());
   const res = await fetch(`${GITHUB_API}${path}`, {
     ...init,
     cache: "no-store",
@@ -65,8 +79,8 @@ export async function rest<T>(path: string, init: RequestInit & { accept?: strin
   return (await res.json()) as T;
 }
 
-export async function graphql<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
-  const token = await userToken();
+export async function graphql<T>(query: string, variables: Record<string, unknown> = {}, token?: string): Promise<T> {
+  token ??= await userToken();
   const res = await fetch(`${GITHUB_API}/graphql`, {
     method: "POST",
     cache: "no-store",
