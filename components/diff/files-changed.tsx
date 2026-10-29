@@ -249,7 +249,19 @@ export function FilesChanged({ prId, repo, number, files: initial, canMarkViewed
             <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${files.length ? (viewedCount / files.length) * 100 : 0}%` }} />
           </div>
         </div>
-        <FileTree files={ordered} activePath={focused?.path ?? null} onSelect={scrollTo} />
+        {/* Phones: the tree folds away so the diffs are one tap down; desktops keep the sticky tree. */}
+        <details className="group lg:hidden">
+          <summary className="cursor-pointer list-none rounded-md border border-border px-3 py-2 text-sm font-medium [&::-webkit-details-marker]:hidden">
+            <span className="group-open:hidden">Show file list</span>
+            <span className="hidden group-open:inline">Hide file list</span>
+          </summary>
+          <div className="mt-2">
+            <FileTree files={ordered} activePath={focused?.path ?? null} onSelect={scrollTo} />
+          </div>
+        </details>
+        <div className="hidden lg:block">
+          <FileTree files={ordered} activePath={focused?.path ?? null} onSelect={scrollTo} />
+        </div>
       </aside>
 
       <div className="min-w-0 space-y-4">

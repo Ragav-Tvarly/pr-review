@@ -58,8 +58,8 @@ export function AiReview({ pr, canPush, bar }: { pr: PrDetail; canPush: boolean;
         </p>
       )}
       <div className="rounded-lg border border-border">
-        <div className="flex flex-wrap items-center gap-5 border-b border-border p-5">
-          <ScoreRing score={review.score} bar={bar} />
+        <div className="flex flex-col gap-5 border-b border-border p-5 sm:flex-row sm:items-center">
+          <ScoreRing score={review.score} bar={bar} className="self-center" />
           <div className="min-w-0 flex-1 space-y-2">
             <h2 id="ai-heading" className="flex flex-wrap items-center gap-2 text-base font-semibold">
               Claude review
@@ -84,7 +84,7 @@ export function AiReview({ pr, canPush, bar }: { pr: PrDetail; canPush: boolean;
             </p>
             {review.rounds.length > 1 && <Trajectory rounds={review.rounds} bar={bar} />}
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 sm:flex-col">
             <ReviewButtons repo={pr.repo} number={pr.number} canPush={canPush} bar={bar} hasReview />
           </div>
         </div>
