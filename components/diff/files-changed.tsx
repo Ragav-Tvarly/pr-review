@@ -10,7 +10,9 @@ import { FileDiff, type FileDiffProps } from "./file-diff";
 import { FileTree } from "./file-tree";
 import { threadKey, type Thread } from "./inline-comments";
 import type { DiffFileItem } from "./types";
+import { Confetti } from "@/components/confetti";
 import { ReviewDialog } from "@/components/review-dialog";
+import { PartyPopper } from "lucide-react";
 import { markViewed, type DraftThread } from "@/lib/github/actions";
 import type { ReviewComment } from "@/lib/github/pull-request";
 import { cn } from "@/lib/utils";
@@ -120,6 +122,7 @@ export function FilesChanged({ prId, repo, number, files: initial, canMarkViewed
   }, [files, sort]);
 
   const viewedCount = files.filter((f) => f.viewed).length;
+  const allViewed = files.length > 0 && viewedCount === files.length;
   const focused = focusedIndex >= 0 ? ordered[focusedIndex] : undefined;
 
   const scrollTo = useCallback(
@@ -283,6 +286,18 @@ export function FilesChanged({ prId, repo, number, files: initial, canMarkViewed
           </p>
         </div>
 
+        {allViewed && (
+          <div role="status" className="flex flex-wrap items-center gap-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4">
+            <Confetti once={`viewed:${repo}#${number}`} />
+            <PartyPopper className="h-5 w-5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+            <p className="text-sm">
+              <span className="font-medium">Every file viewed.</span> That is the whole diff. Ready to leave your verdict?
+            </p>
+            <Button size="sm" className="ml-auto" onClick={() => setReviewOpen(true)}>
+              Review changes
+            </Button>
+          </div>
+        )}
         {ordered.map((file) => (
           <FileDiff
             key={file.path}

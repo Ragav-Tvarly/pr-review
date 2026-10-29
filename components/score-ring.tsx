@@ -1,3 +1,4 @@
+import { CountUp } from "@/components/count-up";
 import { grade } from "@/lib/review/types";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +20,7 @@ export function ScoreRing({ score, bar, size = 112, className }: { score: number
         <circle cx={bx} cy={by} r="3" className="fill-foreground" />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className={cn("text-3xl font-semibold leading-none tabular-nums", TONE(score))}>{score}</span>
+        <CountUp value={score} className={cn("text-3xl font-semibold leading-none tabular-nums", TONE(score))} />
         <span className="mt-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">grade {grade(score)}</span>
       </div>
     </div>

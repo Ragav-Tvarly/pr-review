@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Clock, HelpCircle, Sparkles } from "lucide-react";
+import { Confetti } from "@/components/confetti";
 import { DecisionReply } from "@/components/overview/decision-reply";
 import { ReviewButtons } from "@/components/review-buttons";
 import { RiskBadge } from "@/components/risk-badge";
@@ -49,6 +50,7 @@ export function AiReview({ pr, canPush, bar }: { pr: PrDetail; canPush: boolean;
 
   return (
     <section aria-labelledby="ai-heading" className="space-y-4">
+      {!stale && review.score >= bar && <Confetti once={`bar:${pr.repo}#${pr.number}:${review.headSha}`} />}
       {stale && (
         <p role="status" className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
           <Clock className="h-4 w-4 shrink-0" aria-hidden="true" />
