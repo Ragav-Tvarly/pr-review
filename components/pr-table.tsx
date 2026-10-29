@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { RiskBadge } from "@/components/risk-badge";
+import { ScoreButton } from "@/components/score-button";
 import type { PrSummary } from "@/lib/github/pulls";
 import { countTabs, TABS, tabsFor, type Tab } from "@/lib/pr-status";
 import { timeAgo, utcStamp } from "@/lib/format";
@@ -21,7 +22,7 @@ import { cn } from "@/lib/utils";
 
 const TAB_IDS = new Set<string>(TABS.map((t) => t.id));
 
-export function PrTable({ prs, viewer, toolbar }: { prs: PrSummary[]; viewer: string; toolbar?: (selected: PrSummary[]) => React.ReactNode }) {
+export function PrTable({ prs, viewer }: { prs: PrSummary[]; viewer: string }) {
   const router = useRouter();
   const params = useSearchParams();
   const tabParam = params.get("tab") ?? "all";
@@ -136,7 +137,9 @@ export function PrTable({ prs, viewer, toolbar }: { prs: PrSummary[]; viewer: st
           {visible.length === prs.length ? `${prs.length} open` : `${visible.length} of ${prs.length}`}
           {selected.size > 0 && ` · ${selected.size} selected`}
         </p>
-        {toolbar && <div className="ml-auto">{toolbar(selectedPrs)}</div>}
+        <div className="ml-auto">
+          <ScoreButton selected={selectedPrs} all={visible} />
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-border">

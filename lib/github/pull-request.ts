@@ -1,0 +1,248 @@
+import { cache } from "react";
+import { graphql, rest } from "./client";
+import { PULL_REQUEST, PULL_REQUEST_FILES_PAGE } from "./queries";
+import type { CheckState, ReviewDecision } from "./pulls";
+import { riskFromLabels, type Risk } from "@/lib/review/types";
+
+export type ViewedState = "VIEWED" | "UNVIEWED" | "DISMISSED";
+export type ChangeType = "ADDED" | "DELETED" | "MODIFIED" | "RENAMED" | "COPIED" | "CHANGED";
+
+export type PrFile = { path: string; additions: number; deletions: number; changeType: ChangeType; viewed: ViewedState };
+
+export type CheckContext = { name: string; state: "SUCCESS" | "FAILURE" | "PENDING" | "NEUTRAL" | "SKIPPED" | "OTHER"; url: string | null };
+
+export type Commit = {
+  oid: string;
+  abbreviatedOid: string;
+  headline: string;
+  body: string;
+  date: string;
+  url: string;
+  author: { name: string; login: string | null; avatarUrl: string | null };
+};
+
+export type PrDetail = {
+  id: string;
+  number: number;
+  repo: string;
+  title: string;
+  url: string;
+  bodyHTML: string;
+  isDraft: boolean;
+  state: "OPEN" | "CLOSED" | "MERGED";
+  createdAt: string;
+  updatedAt: string;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+  reviewDecision: ReviewDecision;
+  mergeable: "MERGEABLE" | "CONFLICTING" | "UNKNOWN";
+  mergeStateStatus: "BEHIND" | "BLOCKED" | "CLEAN" | "DIRTY" | "DRAFT" | "HAS_HOOKS" | "UNKNOWN" | "UNSTABLE";
+  viewerCanUpdate: boolean;
+  headRefOid: string;
+  baseRefName: string;
+  headRefName: string;
+  author: { login: string; avatarUrl: string };
+  labels: { name: string; color: string }[];
+  risk: Risk | null;
+  reviewRequests: string[];
+  latestReviews: { author: string; avatarUrl: string; state: string; submittedAt: string; url: string }[];
+  files: PrFile[];
+  comments: { id: number; author: string; body: string; createdAt: string; url: string }[];
+  commits: Commit[];
+  commitCount: number;
+  checks: { state: CheckState; contexts: CheckContext[] };
+  mergeMethods: ("MERGE" | "SQUASH" | "REBASE")[];
+};
+
+type FileNode = { path: string; additions: number; deletions: number; changeType: ChangeType; viewerViewedState: ViewedState };
+type CheckNode =
+  | { name: string; conclusion: string | null; status: string; detailsUrl: string | null }
+  | { context: string; state: string; targetUrl: string | null };
+
+type PullRequestData = {
+  repository: {
+    mergeCommitAllowed: boolean;
+    squashMergeAllowed: boolean;
+    rebaseMergeAllowed: boolean;
+    pullRequest: {
+      id: string;
+      number: number;
+      title: string;
+      url: string;
+      bodyHTML: string;
+      isDraft: boolean;
+      state: PrDetail["state"];
+      createdAt: string;
+      updatedAt: string;
+      additions: number;
+      deletions: number;
+      changedFiles: number;
+      reviewDecision: ReviewDecision;
+      mergeable: PrDetail["mergeable"];
+      mergeStateStatus: PrDetail["mergeStateStatus"];
+      viewerCanUpdate: boolean;
+      headRefOid: string;
+      baseRefName: string;
+      headRefName: string;
+      author: { login: string; avatarUrl: string } | null;
+      labels: { nodes: { name: string; color: string }[] };
+      reviewRequests: { nodes: { requestedReviewer: { login?: string; name?: string } | null }[] };
+      latestReviews: { nodes: { author: { login: string; avatarUrl: string } | null; state: string; submittedAt: string; url: string }[] };
+      files: { totalCount: number; pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: FileNode[] } | null;
+      comments: { nodes: { databaseId: number; author: { login: string } | null; body: string; createdAt: string; url: string }[] };
+      commits: {
+        totalCount: number;
+        nodes: {
+          commit: {
+            oid: string;
+            abbreviatedOid: string;
+            messageHeadline: string;
+            messageBody: string;
+            committedDate: string;
+            url: string;
+            author: { name: string; user: { login: string; avatarUrl: string } | null } | null;
+            statusCheckRollup: { state: CheckState; contexts: { nodes: CheckNode[] } } | null;
+          };
+        }[];
+      };
+    } | null;
+  } | null;
+};
+
+function toContext(node: CheckNode): CheckContext {
+  if ("context" in node) {
+    const s = node.state;
+    return { name: node.context, state: s === "SUCCESS" || s === "FAILURE" || s === "PENDING" ? s : "OTHER", url: node.targetUrl };
+  }
+  const c = node.conclusion;
+  const state: CheckContext["state"] =
+    node.status !== "COMPLETED" ? "PENDING"
+    : c === "SUCCESS" ? "SUCCESS"
+    : c === "FAILURE" || c === "TIMED_OUT" || c === "CANCELLED" || c === "ACTION_REQUIRED" || c === "STARTUP_FAILURE" ? "FAILURE"
+    : c === "NEUTRAL" ? "NEUTRAL"
+    : c === "SKIPPED" ? "SKIPPED"
+    : "OTHER";
+  return { name: node.name, state, url: node.detailsUrl };
+}
+
+/** Cached per request so the layout and the page share one GraphQL call. */
+export const getPullRequest = cache(async (owner: string, name: string, number: number): Promise<PrDetail | null> => {
+  const data = await graphql<PullRequestData>(PULL_REQUEST, { owner, name, number });
+  const repo = data.repository;
+  const pr = repo?.pullRequest;
+  if (!repo || !pr) return null;
+
+  const files: FileNode[] = [...(pr.files?.nodes ?? [])];
+  let page = pr.files?.pageInfo;
+  while (page?.hasNextPage) {
+    const more = await graphql<{ repository: { pullRequest: { files: NonNullable<PullRequestData["repository"]>["pullRequest"] extends infer P ? (P extends { files: infer F } ? F : never) : never } } }>(
+      PULL_REQUEST_FILES_PAGE,
+      { owner, name, number, after: page.endCursor },
+    );
+    const f = more.repository.pullRequest.files;
+    if (!f) break;
+    files.push(...f.nodes);
+    page = f.pageInfo;
+  }
+
+  const last = pr.commits.nodes[pr.commits.nodes.length - 1]?.commit.statusCheckRollup ?? null;
+  const labels = pr.labels.nodes;
+  const mergeMethods: PrDetail["mergeMethods"] = [];
+  if (repo.squashMergeAllowed) mergeMethods.push("SQUASH");
+  if (repo.mergeCommitAllowed) mergeMethods.push("MERGE");
+  if (repo.rebaseMergeAllowed) mergeMethods.push("REBASE");
+
+  return {
+    id: pr.id,
+    number: pr.number,
+    repo: `${owner}/${name}`,
+    title: pr.title,
+    url: pr.url,
+    bodyHTML: pr.bodyHTML,
+    isDraft: pr.isDraft,
+    state: pr.state,
+    createdAt: pr.createdAt,
+    updatedAt: pr.updatedAt,
+    additions: pr.additions,
+    deletions: pr.deletions,
+    changedFiles: pr.changedFiles,
+    reviewDecision: pr.reviewDecision,
+    mergeable: pr.mergeable,
+    mergeStateStatus: pr.mergeStateStatus,
+    viewerCanUpdate: pr.viewerCanUpdate,
+    headRefOid: pr.headRefOid,
+    baseRefName: pr.baseRefName,
+    headRefName: pr.headRefName,
+    author: pr.author ?? { login: "ghost", avatarUrl: "" },
+    labels,
+    risk: riskFromLabels(labels.map((l) => l.name)),
+    reviewRequests: pr.reviewRequests.nodes.map((n) => n.requestedReviewer?.login ?? n.requestedReviewer?.name ?? "").filter(Boolean),
+    latestReviews: pr.latestReviews.nodes.map((r) => ({
+      author: r.author?.login ?? "",
+      avatarUrl: r.author?.avatarUrl ?? "",
+      state: r.state,
+      submittedAt: r.submittedAt,
+      url: r.url,
+    })),
+    files: files.map((f) => ({ path: f.path, additions: f.additions, deletions: f.deletions, changeType: f.changeType, viewed: f.viewerViewedState })),
+    comments: pr.comments.nodes.map((c) => ({ id: c.databaseId, author: c.author?.login ?? "", body: c.body, createdAt: c.createdAt, url: c.url })),
+    commits: pr.commits.nodes.map(({ commit: c }) => ({
+      oid: c.oid,
+      abbreviatedOid: c.abbreviatedOid,
+      headline: c.messageHeadline,
+      body: c.messageBody,
+      date: c.committedDate,
+      url: c.url,
+      author: { name: c.author?.name ?? "", login: c.author?.user?.login ?? null, avatarUrl: c.author?.user?.avatarUrl ?? null },
+    })),
+    commitCount: pr.commits.totalCount,
+    checks: { state: last?.state ?? null, contexts: (last?.contexts.nodes ?? []).map(toContext) },
+    mergeMethods,
+  };
+});
+
+export type FilePatch = {
+  path: string;
+  previousPath: string | null;
+  status: "added" | "removed" | "modified" | "renamed" | "copied" | "changed" | "unchanged";
+  additions: number;
+  deletions: number;
+  changes: number;
+  /** Unified diff hunks for this file; absent for binary or very large files. */
+  patch: string | null;
+  blobUrl: string;
+};
+
+type RestFile = {
+  filename: string;
+  previous_filename?: string;
+  status: FilePatch["status"];
+  additions: number;
+  deletions: number;
+  changes: number;
+  patch?: string;
+  blob_url: string;
+};
+
+/** Per-file patches from REST, already split per file (so no diff parser). Paginates past 100 files. */
+export const getFilePatches = cache(async (owner: string, name: string, number: number): Promise<FilePatch[]> => {
+  const out: FilePatch[] = [];
+  for (let page = 1; page <= 30; page++) {
+    const batch = await rest<RestFile[]>(`/repos/${owner}/${name}/pulls/${number}/files?per_page=100&page=${page}`);
+    out.push(
+      ...batch.map((f) => ({
+        path: f.filename,
+        previousPath: f.previous_filename ?? null,
+        status: f.status,
+        additions: f.additions,
+        deletions: f.deletions,
+        changes: f.changes,
+        patch: f.patch ?? null,
+        blobUrl: f.blob_url,
+      })),
+    );
+    if (batch.length < 100) break;
+  }
+  return out;
+});

@@ -1,3 +1,4 @@
+@import "@git-diff-view/react/styles/diff-view-pure.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
