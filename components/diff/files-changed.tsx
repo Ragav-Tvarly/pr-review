@@ -34,6 +34,14 @@ function writeDiffMode(mode: "split" | "unified") {
   } catch {}
   window.dispatchEvent(new Event(DIFF_MODE_EVENT));
 }
+// Split view needs room; below 768px the diff is always unified regardless of the stored preference.
+const WIDE_QUERY = "(min-width: 768px)";
+function subscribeWide(cb: () => void) {
+  const mq = window.matchMedia(WIDE_QUERY);
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
+}
+
 function subscribeDiffMode(cb: () => void) {
   window.addEventListener(DIFF_MODE_EVENT, cb);
   window.addEventListener("storage", cb);
@@ -105,7 +113,9 @@ export function FilesChanged({ prId, repo, number, files: initial, canMarkViewed
       return next;
     });
   }, []);
-  const split = useSyncExternalStore(subscribeDiffMode, () => readDiffMode() === "split", () => true);
+  const splitPref = useSyncExternalStore(subscribeDiffMode, () => readDiffMode() === "split", () => true);
+  const wide = useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE_QUERY).matches, () => true);
+  const split = splitPref && wide;
   const [sort, setSort] = useState<Sort>(initial.some((f) => f.importance !== undefined) ? "importance" : "path");
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(initial.filter((f) => !f.noise).map((f) => f.path)));
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
@@ -278,7 +288,7 @@ export function FilesChanged({ prId, repo, number, files: initial, canMarkViewed
             </SelectContent>
           </Select>
           <div role="group" aria-label="Diff layout" className="inline-flex overflow-hidden rounded-md border border-border">
-            <Button variant="ghost" size="sm" className={cn("h-8 rounded-none text-xs", split && "bg-accent")} aria-pressed={split} onClick={() => changeSplit(true)}>
+            <Button variant="ghost" size="sm" className={cn("h-8 rounded-none text-xs", split && "bg-accent")} aria-pressed={split} onClick={() => changeSplit(true)} disabled={!wide} title={wide ? undefined : "Split view needs a wider screen"}>
               <Columns2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
               Split
             </Button>
