@@ -3,12 +3,12 @@ import { redirect } from "next/navigation";
 import { GitPullRequest } from "lucide-react";
 import { auth, signIn } from "@/auth";
 import { Button } from "@/components/ui/button";
-import { devToken, primaryRepo } from "@/lib/config";
+import { devToken } from "@/lib/config";
 
 export const metadata: Metadata = { title: "Sign in" };
 
 const ERRORS: Record<string, string> = {
-  AccessDenied: `Your GitHub account does not have access to ${primaryRepo()}. Ask an org owner to add you as a collaborator, then try again.`,
+  AccessDenied: "This GitHub account cannot use tvar review: it has no access to an enabled repository, or it is the review bot (TvarReview). Sign in with your own GitHub account; if you are signed in to github.com as someone else, sign out there first.",
   OAuthCallbackError: "GitHub did not complete the sign-in. Try again.",
   Configuration: "The GitHub OAuth App is not configured on this deployment yet.",
 };
@@ -25,7 +25,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
           <h1 className="text-xl font-semibold tracking-tight">tvar review</h1>
         </div>
         <p className="mb-6 text-sm text-muted-foreground">
-          Review pull requests for <span className="font-mono text-foreground">{primaryRepo()}</span>. Sign in with the GitHub account that has access to the repo.
+          Review pull requests in your team&apos;s repositories. Sign in with GitHub; you will see the repositories enabled for the review bot that your account can access.
         </p>
         {message && (
           <p role="alert" className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">

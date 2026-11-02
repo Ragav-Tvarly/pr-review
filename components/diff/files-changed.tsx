@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Kbd } from "@/components/kbd";
 import { FileDiff, type FileDiffProps } from "./file-diff";
 import { FileTree } from "./file-tree";
-import { threadKey, type Thread } from "./inline-comments";
+import { PrContext, threadKey, type Thread } from "./inline-comments";
 import type { DiffFileItem } from "./types";
 import { Confetti } from "@/components/confetti";
 import { ReviewDialog } from "@/components/review-dialog";
@@ -77,7 +77,23 @@ function groupThreads(comments: ReviewComment[]): Record<string, Record<string, 
 export function FilesChanged({ prId, repo, number, files: initial, canMarkViewed, comments, isAuthor }: Props) {
   const [files, setFiles] = useState(initial);
   const [threads, setThreads] = useState<Record<string, Record<string, Thread>>>(() => groupThreads(comments));
+  // after a reply / resolve the server sends fresh comments: regroup, keeping unsent pending comments
+  const [seenComments, setSeenComments] = useState(comments);
+  if (seenComments !== comments) {
+    setSeenComments(comments);
+    setThreads((prev) => {
+      const next = groupThreads(comments);
+      for (const [path, file] of Object.entries(prev))
+        for (const [k, t] of Object.entries(file)) {
+          if (!t.pending) continue;
+          const f = (next[path] ??= {});
+          f[k] = { ...(f[k] ?? { path: t.path, line: t.line, side: t.side, existing: [] }), pending: t.pending };
+        }
+      return next;
+    });
+  }
   const [reviewOpen, setReviewOpen] = useState(false);
+  const prCtx = useMemo(() => ({ repo, number }), [repo, number]);
 
   const pendingThreads: DraftThread[] = useMemo(
     () => Object.values(threads).flatMap((file) => Object.values(file).filter((t) => t.pending).map((t) => ({ path: t.path, line: t.line, side: t.side, body: t.pending! }))),
@@ -244,6 +260,7 @@ export function FilesChanged({ prId, repo, number, files: initial, canMarkViewed
   const allExpanded = ordered.every((f) => expanded.has(f.path));
 
   return (
+    <PrContext.Provider value={prCtx}>
     <div className="grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
       <aside className="lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto">
         <div className="mb-3">
@@ -353,6 +370,7 @@ export function FilesChanged({ prId, repo, number, files: initial, canMarkViewed
       )}
       <ReviewDialog open={reviewOpen} onOpenChange={setReviewOpen} repo={repo} number={number} prId={prId} isAuthor={isAuthor} threads={pendingThreads} onSubmitted={clearPending} />
     </div>
+    </PrContext.Provider>
   );
 }
 

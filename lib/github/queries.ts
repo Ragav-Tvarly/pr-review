@@ -18,7 +18,7 @@ export const OPEN_PULL_REQUESTS = /* GraphQL */ `
           author { login avatarUrl }
           labels(first: 20) { nodes { name color } }
           reviewRequests(first: 10) {
-            nodes { requestedReviewer { ... on User { login } ... on Team { name } } }
+            nodes { requestedReviewer { ... on User { login } } }
           }
           latestReviews(first: 10) { nodes { author { login } state } }
           commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
@@ -57,7 +57,7 @@ export const PULL_REQUEST = /* GraphQL */ `
         author { login avatarUrl }
         labels(first: 20) { nodes { name color } }
         reviewRequests(first: 10) {
-          nodes { requestedReviewer { ... on User { login } ... on Team { name } } }
+          nodes { requestedReviewer { ... on User { login } } }
         }
         latestReviews(first: 10) { nodes { author { login avatarUrl } state submittedAt url } }
         files(first: 100) {
@@ -65,7 +65,7 @@ export const PULL_REQUEST = /* GraphQL */ `
           pageInfo { hasNextPage endCursor }
           nodes { path additions deletions changeType viewerViewedState }
         }
-        comments(last: 50) { nodes { databaseId author { login } body createdAt url } }
+        comments(last: 50) { nodes { databaseId author { login avatarUrl } body bodyHTML createdAt url } }
         commits(first: 100) {
           totalCount
           nodes {

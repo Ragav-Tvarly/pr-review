@@ -30,4 +30,4 @@ GITHUB_DEV_TOKEN=$(gh auth token) npm run dev
 
 ## Setup (one-time)
 
-See `review/README.md` for the scheduled task, and the checklist in the project plan for the GitHub OAuth App, the `tvar-review-bot` machine user and the Vercel env vars.
+See `review/README.md` for the scheduled task, and the hand-off checklist at the bottom of `docs/PLAN.md` for the GitHub OAuth App, the `TvarReview` machine user and the Vercel env vars.

@@ -1,6 +1,6 @@
-import { cachedRead, graphql } from "./client";
+import { cachedRead, graphql, viewer } from "./client";
+import { canSeePr } from "@/lib/config";
 import { OPEN_PULL_REQUESTS } from "./queries";
-import { repos } from "@/lib/config";
 import { riskFromLabels, type Risk } from "@/lib/review/types";
 
 export type ReviewDecision = "APPROVED" | "CHANGES_REQUESTED" | "REVIEW_REQUIRED" | null;
@@ -46,7 +46,7 @@ type OpenPullRequestsData = {
         headRefName: string;
         author: { login: string; avatarUrl: string } | null;
         labels: { nodes: { name: string; color: string }[] };
-        reviewRequests: { nodes: { requestedReviewer: { login?: string; name?: string } | null }[] };
+        reviewRequests: { nodes: { requestedReviewer: { login?: string } | null }[] };
         latestReviews: { nodes: { author: { login: string } | null; state: string }[] };
         commits: { nodes: { commit: { statusCheckRollup: { state: CheckState } | null } }[] };
       }>;
@@ -57,12 +57,14 @@ type OpenPullRequestsData = {
 export const PR_LIST_TAG = "pr-list";
 
 export async function listOpenPRs(): Promise<PrSummary[]> {
-  return cachedRead(["list", ...repos()], [PR_LIST_TAG], (token) => fetchOpenPRs(token));
+  const me = await viewer();
+  const all = await cachedRead(["list", ...me.repos], [PR_LIST_TAG], (token) => fetchOpenPRs(token, me.repos));
+  return all.filter((pr) => canSeePr(me, pr.author.login));
 }
 
-async function fetchOpenPRs(token: string): Promise<PrSummary[]> {
+async function fetchOpenPRs(token: string, repos: string[]): Promise<PrSummary[]> {
   const perRepo = await Promise.all(
-    repos().map(async (repo) => {
+    repos.map(async (repo) => {
       const [owner, name] = repo.split("/");
       const data = await graphql<OpenPullRequestsData>(OPEN_PULL_REQUESTS, { owner, name }, token);
       const nodes = data.repository?.pullRequests.nodes ?? [];
@@ -85,7 +87,7 @@ async function fetchOpenPRs(token: string): Promise<PrSummary[]> {
           author: pr.author ?? { login: "ghost", avatarUrl: "" },
           labels,
           reviewRequests: pr.reviewRequests.nodes
-            .map((n) => n.requestedReviewer?.login ?? n.requestedReviewer?.name ?? "")
+            .map((n) => n.requestedReviewer?.login ?? "")
             .filter(Boolean),
           latestReviews: pr.latestReviews.nodes.map((r) => ({ author: r.author?.login ?? "", state: r.state })),
           checks: pr.commits.nodes[0]?.commit.statusCheckRollup?.state ?? null,

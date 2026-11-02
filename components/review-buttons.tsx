@@ -17,8 +17,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { NOT_CONFIGURED } from "@/components/score-button";
 import { fireReviews } from "@/lib/review/fire";
+import { startRun } from "@/components/run-watcher";
 
-export function ReviewButtons({ repo, number, canPush, bar, hasReview, size = "sm" }: { repo: string; number: number; canPush: boolean; bar: number; hasReview: boolean; size?: "sm" | "default" }) {
+export function ReviewButtons({ repo, number, canPush, bar, hasReview, score = null, size = "sm" }: { repo: string; number: number; canPush: boolean; bar: number; hasReview: boolean; score?: number | null; size?: "sm" | "default" }) {
   const [pending, start] = useTransition();
   const [confirmFix, setConfirmFix] = useState(false);
   const router = useRouter();
@@ -29,7 +30,8 @@ export function ReviewButtons({ repo, number, canPush, bar, hasReview, size = "s
       if (!res.configured) return void toast.error(NOT_CONFIGURED);
       const failed = res.failed[0];
       if (failed) return void toast.error(`Could not start: ${failed.error}`);
-      toast.success(mode === "fix" ? `Review & fix started. The bot pushes fixes to this branch until the score reaches ${bar}.` : "Review started. Results land on this page in a few minutes.");
+      startRun(repo, number, mode, score);
+      toast.success(mode === "fix" ? `Review & fix started. The bot pushes fixes to this branch until the score reaches ${bar}.` : "Review started. This page updates when the result lands (a few minutes).");
       router.refresh();
     });
 
@@ -50,7 +52,7 @@ export function ReviewButtons({ repo, number, canPush, bar, hasReview, size = "s
           <AlertDialogHeader>
             <AlertDialogTitle>Let the bot push fixes to this branch?</AlertDialogTitle>
             <AlertDialogDescription>
-              The review bot will review, apply only clear-cut fixes, run checks, commit as tvar-review-bot and push to this PR&apos;s branch, then re-score. It repeats until the score reaches {bar} or it runs out of rounds. Product decisions are left for you as questions on the thread. It stops if someone else pushes meanwhile.
+              The review bot will review, apply only clear-cut fixes, run checks, commit as TvarReview and push to this PR&apos;s branch, then re-score. It repeats until the score reaches {bar} or it runs out of rounds. Product decisions are left for you as questions on the thread. It stops if someone else pushes meanwhile.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

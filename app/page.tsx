@@ -6,7 +6,6 @@ import { WeekStatsStrip } from "@/components/week-stats";
 import { getWeekStats } from "@/lib/github/stats";
 import { viewer } from "@/lib/github/client";
 import { listOpenPRs } from "@/lib/github/pulls";
-import { repos } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +17,7 @@ export default async function DashboardPage() {
       <main className="mx-auto w-full max-w-6xl px-4 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold tracking-tight">Pull requests</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Open pull requests in {repos().join(", ")}.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Open pull requests in {me.repos.length === 1 ? me.repos[0] : `${me.repos.length} repositories`}.</p>
         </div>
         {week && (
           <div className="mb-6">
@@ -26,7 +25,7 @@ export default async function DashboardPage() {
           </div>
         )}
         <Suspense>
-          <PrTable prs={prs} viewer={me.login} />
+          <PrTable prs={prs} viewer={me.login} repos={me.repos} />
         </Suspense>
       </main>
       <CommandPalette prs={prs} />

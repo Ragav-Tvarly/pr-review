@@ -10,25 +10,41 @@ label). The dashboard reads those. There is no other data store.
 
 ## One-time setup (signed in as admin@tvarlaunchpad.com)
 
-1. **GitHub App**: an org owner installs the Claude GitHub App on `tvardev/tvar-business` and on
-   this repo (needed for the PR-event trigger and for cloning).
+1. **GitHub App**: the `tvardev` account owner installs the Claude GitHub App on `tvardev/tvar-business` and on
+   this repo (needed for cloning).
 2. **Connect GitHub** for the admin account at claude.ai/code (GitHub authentication options).
-3. **Cloud environment** (claude.ai/code → environments): create "tvar review" with Trusted network
-   and the environment variable `GH_TOKEN=<fine-grained PAT of the machine user tvar-review-bot>`
+3. **Cloud environment** (claude.ai/code → environments): create "tvar review" with Network access **Full** (no "Trusted" option any more; do not use Network secrets, `gh` needs the env var)
+   and the environment variable `GH_TOKEN=<classic PAT (repo scope) of the machine user TvarReview>`
    (Pull requests R/W, Issues R/W, Contents R, Metadata R on tvar-business). Smoke test in a session:
    `gh api rate_limit`, `gh api repos/tvardev/tvar-business/pulls?per_page=1`, `gh api user --jq .login`
-   (expects `tvar-review-bot`). Do **not** test with `gh pr list`; it fails by design.
+   (expects `TvarReview`). Do **not** test with `gh pr list`; it fails by design.
+   **Observed 2026-11-02:** the cloud proxy replaces `GH_TOKEN` on `api.github.com` requests with the
+   claude.ai account's own GitHub connection (`gh api user` returned the connected user, rate limit
+   15000; the PAT itself verified locally as `TvarReview`). The bot identity is therefore whichever GitHub
+   user the routine's claude.ai account is connected to, not the env var. Fix applied: admin@'s claude.ai
+   GitHub connection was re-authorized as **TvarReview** (Repo picker → ⚙), after TvarReview became a Write
+   collaborator on both repos. Smoke test then printed `TvarReview`. Side effect: every cloud session on
+   admin@ acts on GitHub as TvarReview.
 4. **Scheduled task** (claude.ai/code/routines → create):
    - Name: `tvar PR review`
    - Prompt: `Follow review/REVIEW.md in the pr-review checkout exactly. It is the whole assignment.`
    - Repositories: `tvardev/tvar-business` **first**, then this repo.
    - Environment: "tvar review". Model: the default; effort high.
-   - Triggers: GitHub event `pull_request` → `opened` and `synchronize`, filter *Is draft = false*,
-     repository tvar-business; plus an **API trigger**. Copy its Fire URL and token into the Vercel
-     project as `ROUTINE_FIRE_URL` / `ROUTINE_FIRE_TOKEN`.
-   - Run once with **Run now** on a small PR before enabling the triggers. Check the run log for the
-     identity line (`posting as tvar-review-bot`) and the review URL.
-5. **Fire payload format** (what the dashboard sends): `owner/repo#NUMBER` optionally followed by
+   - Trigger: **API only**. Reviews are on request (decided 2026-11-02): no GitHub event trigger, no
+     schedule. Copy the Fire URL and token into the Vercel project as `ROUTINE_FIRE_URL` /
+     `ROUTINE_FIRE_TOKEN`. The fire endpoint needs headers `anthropic-version: 2023-06-01` and
+     `anthropic-beta: experimental-cc-routine-2026-04-01` (`lib/review/fire.ts` sends both).
+   - Connectors: all off (the bot reads PR text anyone can write).
+   - Test by firing `owner/repo#N` (not **Run now**: with no payload it finds no PR and stops). Check the run log for the
+     identity line (`posting as TvarReview`) and the review URL.
+5. **Enable a repo** (repeat per repo; the dashboard shows only enabled repos, each user only those they can access):
+   1. The repo owner installs the Claude GitHub App on it (github.com/apps/claude → Configure → add the repo).
+   2. Invite the bot: `gh api -X PUT repos/OWNER/REPO/collaborators/TvarReview -f permission=push`, then
+      accept as TvarReview (github.com/notifications).
+   3. Add the repo to the routine's repositories on claude.ai (keep `pr-review` attached too).
+   4. Append `OWNER/REPO` to `GITHUB_REPOS` in Vercel and redeploy. Users already signed in sign out and
+      in again to pick it up (access is read at sign-in).
+6. **Fire payload format** (what the dashboard sends): `owner/repo#NUMBER` optionally followed by
    `fix`. The prompt ignores anything else in the payload.
 
 ## Files
