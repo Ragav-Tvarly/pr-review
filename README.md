@@ -1,3 +1,13 @@
+# throwaway smoke test
+
+line three: order route writes without auth
+
+line five: markup before tax
+
+line seven: unbounded query
+
+line nine: naming nit
+
 # tvar review
 
 Internal pull-request review dashboard for the tvar team: a GitHub PR client (file tree, split diffs, viewed tracking, keyboard navigation, review and merge) plus AI reviews produced by a Claude Code scheduled task and written back to GitHub. GitHub is the only database.
