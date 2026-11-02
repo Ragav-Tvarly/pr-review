@@ -1,4 +1,5 @@
 import { cachedRead, graphql, viewer } from "./client";
+import { canSeePr } from "@/lib/config";
 import { OPEN_PULL_REQUESTS } from "./queries";
 import { riskFromLabels, type Risk } from "@/lib/review/types";
 
@@ -56,8 +57,9 @@ type OpenPullRequestsData = {
 export const PR_LIST_TAG = "pr-list";
 
 export async function listOpenPRs(): Promise<PrSummary[]> {
-  const { repos } = await viewer();
-  return cachedRead(["list", ...repos], [PR_LIST_TAG], (token) => fetchOpenPRs(token, repos));
+  const me = await viewer();
+  const all = await cachedRead(["list", ...me.repos], [PR_LIST_TAG], (token) => fetchOpenPRs(token, me.repos));
+  return all.filter((pr) => canSeePr(me, pr.author.login));
 }
 
 async function fetchOpenPRs(token: string, repos: string[]): Promise<PrSummary[]> {

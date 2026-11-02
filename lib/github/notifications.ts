@@ -3,6 +3,7 @@
 import { cachedRead, rest, viewer } from "./client";
 import { hasRepo } from "./access";
 import { parseMarker } from "@/lib/review/parse";
+import { canSeePr } from "@/lib/config";
 
 /** One PR notification from the user's own GitHub inbox, worded for the dashboard. GitHub keeps read state. */
 export type Notice = { id: string; repo: string; number: number; title: string; text: string; unread: boolean; updatedAt: string };
@@ -23,13 +24,25 @@ export async function listNotifications(): Promise<Notice[]> {
   const me = await viewer();
   const since = new Date(Date.now() - 14 * 86_400_000).toISOString();
   const threads = await rest<Thread[]>(`/notifications?all=true&per_page=50&since=${since}`);
-  const prs = threads.filter((t) => t.subject.type === "PullRequest" && t.subject.url && hasRepo(me.repos, t.repository.full_name)).slice(0, LIMIT);
+  let prs = threads.filter((t) => t.subject.type === "PullRequest" && t.subject.url && hasRepo(me.repos, t.repository.full_name));
+  if (!me.isSenior) {
+    // devs: only notifications about PRs they opened (others' PRs are not visible to them)
+    const authors = await Promise.all(prs.map((t) => prAuthor(t.subject.url!)));
+    prs = prs.filter((_, i) => canSeePr(me, authors[i] ?? ""));
+  }
+  prs = prs.slice(0, LIMIT);
   return Promise.all(
     prs.map(async (t) => {
       const number = Number(t.subject.url!.split("/").pop());
       return { id: t.id, repo: t.repository.full_name, number, title: t.subject.title, unread: t.unread, updatedAt: t.updated_at, text: await describe(t, number) };
     }),
   );
+}
+
+/** PR author never changes, so cache it long. */
+async function prAuthor(url: string): Promise<string | null> {
+  const path = new URL(url).pathname;
+  return cachedRead(["pr-author", path], [], (token) => rest<{ user: { login: string } | null }>(path, { token }).then((p) => p.user?.login ?? null).catch(() => null), 86_400);
 }
 
 /** What happened, from the latest comment/review GitHub points at (cached per item version). */

@@ -1,4 +1,3 @@
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CountUp } from "@/components/count-up";
 import type { WeekStats } from "@/lib/github/stats";
 
@@ -10,7 +9,6 @@ const LINES = [
 ];
 
 export function WeekStatsStrip({ stats }: { stats: WeekStats }) {
-  const top = stats.people.slice(0, 3);
   const line = LINES[Math.min(LINES.length - 1, Math.floor(stats.reviews / 3))]!;
   return (
     <section aria-labelledby="week-heading" className="rounded-lg border border-border bg-card/50 p-4">
@@ -23,23 +21,6 @@ export function WeekStatsStrip({ stats }: { stats: WeekStats }) {
         <Stat label="opened" value={stats.opened} />
         {stats.avgScore !== null && <Stat label="avg score" value={stats.avgScore} />}
         <p className="text-sm text-muted-foreground">{line}</p>
-        {top.length > 0 && (
-          <ol className="ml-auto flex items-center gap-3" aria-label="Most active this week">
-            {top.map((p, i) => (
-              <li key={p.login} className="flex items-center gap-1.5 text-xs">
-                <span className="font-mono text-muted-foreground">{i + 1}</span>
-                <Avatar className="h-5 w-5">
-                  <AvatarImage src={p.avatarUrl} alt="" />
-                  <AvatarFallback className="text-[10px]">{p.login.slice(0, 2).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <span className="hidden sm:inline">{p.login}</span>
-                <span className="text-muted-foreground">
-                  {p.reviews} rev · {p.merged} merged
-                </span>
-              </li>
-            ))}
-          </ol>
-        )}
       </div>
     </section>
   );

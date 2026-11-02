@@ -23,7 +23,7 @@ import type { PrDetail } from "@/lib/github/pull-request";
 
 const METHOD_LABEL: Record<MergeMethod, string> = { SQUASH: "Squash and merge", MERGE: "Create a merge commit", REBASE: "Rebase and merge" };
 
-export function PrActions({ pr, viewer, canPush, finalReviewer }: { pr: PrDetail; viewer: string; canPush: boolean; finalReviewer: string }) {
+export function PrActions({ pr, viewer, canPush, canMerge, reviewers }: { pr: PrDetail; viewer: string; canPush: boolean; canMerge: boolean; reviewers: string[] }) {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [mergeMethod, setMergeMethod] = useState<MergeMethod | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
@@ -85,7 +85,7 @@ export function PrActions({ pr, viewer, canPush, finalReviewer }: { pr: PrDetail
         <MessageSquarePlus className="mr-1.5 h-4 w-4" aria-hidden="true" />
         Review changes
       </Button>
-      {pr.viewerCanUpdate && <RequestReview pr={pr} finalReviewer={finalReviewer} />}
+      {pr.viewerCanUpdate && <RequestReview pr={pr} reviewers={reviewers} />}
       {pr.viewerCanUpdate && pr.behindBy > 0 && (
         <Button variant="outline" size="sm" onClick={update} disabled={pending} title={`${pr.behindBy} new commit${pr.behindBy === 1 ? "" : "s"} on ${pr.baseRefName}; merge them into this branch`}>
           <RefreshCw className="mr-1.5 h-4 w-4" aria-hidden="true" />
@@ -97,7 +97,7 @@ export function PrActions({ pr, viewer, canPush, finalReviewer }: { pr: PrDetail
           {pr.isDraft ? "Ready for review" : "Convert to draft"}
         </Button>
       )}
-      {canPush && (
+      {canPush && canMerge && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button size="sm" disabled={!mergeable || pending} title={mergeHint} aria-describedby={mergeHint ? "merge-hint" : undefined}>
@@ -115,7 +115,7 @@ export function PrActions({ pr, viewer, canPush, finalReviewer }: { pr: PrDetail
           </DropdownMenuContent>
         </DropdownMenu>
       )}
-      {mergeHint && (
+      {canMerge && mergeHint && (
         <span id="merge-hint" className="sr-only">
           {mergeHint}
         </span>

@@ -8,7 +8,7 @@ import { devToken } from "@/lib/config";
 export const metadata: Metadata = { title: "Sign in" };
 
 const ERRORS: Record<string, string> = {
-  AccessDenied: "Your GitHub account has no access to any repository enabled for tvar review. Ask the repo owner to add you as a collaborator, then try again.",
+  AccessDenied: "This GitHub account cannot use tvar review: it has no access to an enabled repository, or it is the review bot (TvarReview). Sign in with your own GitHub account; if you are signed in to github.com as someone else, sign out there first.",
   OAuthCallbackError: "GitHub did not complete the sign-in. Try again.",
   Configuration: "The GitHub OAuth App is not configured on this deployment yet.",
 };

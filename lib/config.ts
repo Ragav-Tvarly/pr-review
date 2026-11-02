@@ -26,7 +26,20 @@ export function scoreBar(): number {
   return Number.isFinite(n) && n > 0 && n <= 100 ? n : 80;
 }
 
-/** The senior dev who gives the final review before merge; pinned first in "Request review". */
-export function finalReviewer(): string {
-  return process.env.FINAL_REVIEWER?.trim() || "tvardev";
+/**
+ * Senior dev(s) who give the final review and merge (FINAL_REVIEWER, comma-separated; offered in
+ * "Request review"). They see and act on every PR; everyone else sees only the PRs they opened.
+ */
+export function seniors(): string[] {
+  const list = (process.env.FINAL_REVIEWER ?? "tvardev").split(",").map((s) => s.trim()).filter(Boolean);
+  return list.length ? list : ["tvardev"];
+}
+
+export function isSenior(login: string): boolean {
+  return seniors().some((s) => s.toLowerCase() === login.toLowerCase());
+}
+
+/** Devs only work on their own PRs; seniors on all. */
+export function canSeePr(viewer: { login: string; isSenior: boolean }, author: string): boolean {
+  return viewer.isSenior || viewer.login.toLowerCase() === author.toLowerCase();
 }
