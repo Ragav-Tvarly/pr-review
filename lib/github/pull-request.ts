@@ -90,7 +90,7 @@ type PullRequestData = {
       headRefName: string;
       author: { login: string; avatarUrl: string } | null;
       labels: { nodes: { name: string; color: string }[] };
-      reviewRequests: { nodes: { requestedReviewer: { login?: string; name?: string } | null }[] };
+      reviewRequests: { nodes: { requestedReviewer: { login?: string } | null }[] };
       latestReviews: { nodes: { author: { login: string; avatarUrl: string } | null; state: string; submittedAt: string; url: string }[] };
       files: { totalCount: number; pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: FileNode[] } | null;
       comments: { nodes: { databaseId: number; author: { login: string } | null; body: string; createdAt: string; url: string }[] };
@@ -191,7 +191,7 @@ async function fetchPullRequest(token: string, owner: string, name: string, numb
     author: pr.author ?? { login: "ghost", avatarUrl: "" },
     labels,
     risk: riskFromLabels(labels.map((l) => l.name)),
-    reviewRequests: pr.reviewRequests.nodes.map((n) => n.requestedReviewer?.login ?? n.requestedReviewer?.name ?? "").filter(Boolean),
+    reviewRequests: pr.reviewRequests.nodes.map((n) => n.requestedReviewer?.login ?? "").filter(Boolean),
     latestReviews: pr.latestReviews.nodes.map((r) => ({
       author: r.author?.login ?? "",
       avatarUrl: r.author?.avatarUrl ?? "",
