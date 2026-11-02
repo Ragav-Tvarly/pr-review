@@ -49,13 +49,17 @@ mode (`REVIEW.md` fix section) has never run in the cloud; the scheduled task it
 
 ## Next steps (hand-off checklist, `docs/PLAN.md` bottom)
 
-Blocked on accounts/permissions (`tvardev` is a personal account, not an org; tracked in `owed list` #148, #149, #177–#180):
+`tvardev` is a **personal** GitHub account, not an org. Vercel is held by the senior dev. Progress on
+2026-11-02 (Ragav's laptop; `.env.local` there holds the dev OAuth app):
 
-1. Two GitHub OAuth Apps under Ragav-Tvarly (dev `http://localhost:3010/api/auth/callback/github`, prod Vercel domain).
-2. Machine user `TvarReview`, added by tvardev as Write collaborator on both repos, + **classic** PAT `repo` scope (fine-grained PATs cannot access another user's repos).
-3. tvardev installs the Claude GitHub App on `tvar-business` and this repo.
-4. As **admin@tvarlaunchpad.com**: connect GitHub, cloud env `GH_TOKEN=<bot PAT>`, create task
-   "tvar PR review" (PR opened+synchronize non-draft + API trigger), put fire URL/token in Vercel.
-5. Transfer this repo from `Ragav-Tvarly` to `tvardev`.
-
-Then: Vercel project + env (`.env.example`), first manual task run on a small PR, team sign-in check.
+| Step | Status |
+|---|---|
+| Dev OAuth App "tvar review (dev)" under Ragav-Tvarly, callback `http://localhost:3010/api/auth/callback/github`; real sign-in verified | done |
+| Machine user **TvarReview** (dev@tvarlaunchpad.com), 2FA, **classic** PAT `repo` scope exp 2027-11-02 (fine-grained PATs cannot reach another user's repos); token in Ragav's password manager | done |
+| Claude GitHub App on `Ragav-Tvarly/pr-review` (installation 177735144, linked to the dev@ claude.ai account) | done |
+| Senior dev (tvardev): add TvarReview as **Write** collaborator on `tvar-business` + `pr-review`; install the Claude GitHub App on `tvar-business` | asked |
+| Senior dev: Vercel project (Node 22, env per `.env.example`), report the domain | asked |
+| Prod OAuth App under Ragav-Tvarly with callback `https://<vercel-domain>/api/auth/callback/github` | after domain |
+| As **admin@tvarlaunchpad.com** on claude.ai: Connect GitHub (same installation), cloud env with `GH_TOKEN=<TvarReview PAT>`, smoke test `gh api user --jq .login` → `TvarReview`; create task "tvar PR review" (prompt: follow `review/REVIEW.md`; repos tvar-business first, pr-review; triggers PR opened+synchronize non-draft + API trigger); copy fire URL/token to Vercel. See `review/README.md` | next (admin machine) |
+| First manual task run on a small PR; team sign-in check | after task |
+| Transfer repo `Ragav-Tvarly/pr-review` → `tvardev` (Ragav then needs re-adding as collaborator) | last, needs Ragav's OK |
