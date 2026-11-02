@@ -88,3 +88,33 @@ export async function setDraft(repo: string, number: number, prId: string, draft
     return fail(e);
   }
 }
+
+/** People who can be asked to review in this repo (GraphQL assignableUsers works with read access). */
+export async function listReviewers(repo: string): Promise<string[]> {
+  const [owner, name] = repo.split("/");
+  try {
+    const data = await graphql<{ repository: { assignableUsers: { nodes: { login: string }[] } } | null }>(
+      `query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { assignableUsers(first: 100) { nodes { login } } } }`,
+      { owner, name },
+    );
+    return (data.repository?.assignableUsers.nodes ?? []).map((u) => u.login).sort((a, b) => a.localeCompare(b));
+  } catch {
+    return [];
+  }
+}
+
+/** Ask someone to review; a draft is marked ready first so GitHub notifies them. Uses GitHub's own review requests. */
+export async function requestReview(repo: string, number: number, prId: string, reviewer: string, markReady: boolean): Promise<ActionResult> {
+  try {
+    if (markReady) {
+      await graphql(`mutation($input: MarkPullRequestReadyForReviewInput!) { markPullRequestReadyForReview(input: $input) { pullRequest { isDraft } } }`, {
+        input: { pullRequestId: prId },
+      });
+    }
+    await rest(`/repos/${repo}/pulls/${number}/requested_reviewers`, { method: "POST", body: JSON.stringify({ reviewers: [reviewer] }) });
+    await revalidatePr(repo, number);
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}

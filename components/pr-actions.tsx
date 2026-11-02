@@ -17,12 +17,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ReviewDialog } from "@/components/review-dialog";
+import { RequestReview } from "@/components/request-review";
 import { mergePR, setDraft, type MergeMethod } from "@/lib/github/actions";
 import type { PrDetail } from "@/lib/github/pull-request";
 
 const METHOD_LABEL: Record<MergeMethod, string> = { SQUASH: "Squash and merge", MERGE: "Create a merge commit", REBASE: "Rebase and merge" };
 
-export function PrActions({ pr, viewer, canPush }: { pr: PrDetail; viewer: string; canPush: boolean }) {
+export function PrActions({ pr, viewer, canPush, finalReviewer }: { pr: PrDetail; viewer: string; canPush: boolean; finalReviewer: string }) {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [mergeMethod, setMergeMethod] = useState<MergeMethod | null>(null);
   const [pending, start] = useTransition();
@@ -59,6 +60,7 @@ export function PrActions({ pr, viewer, canPush }: { pr: PrDetail; viewer: strin
         <MessageSquarePlus className="mr-1.5 h-4 w-4" aria-hidden="true" />
         Review changes
       </Button>
+      {pr.viewerCanUpdate && <RequestReview pr={pr} finalReviewer={finalReviewer} />}
       {pr.viewerCanUpdate && (
         <Button variant="outline" size="sm" onClick={toggleDraft} disabled={pending}>
           {pr.isDraft ? "Ready for review" : "Convert to draft"}

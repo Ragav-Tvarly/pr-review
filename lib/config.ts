@@ -25,3 +25,8 @@ export function scoreBar(): number {
   const n = Number(process.env.REVIEW_SCORE_BAR);
   return Number.isFinite(n) && n > 0 && n <= 100 ? n : 80;
 }
+
+/** The senior dev who gives the final review before merge; pinned first in "Request review". */
+export function finalReviewer(): string {
+  return process.env.FINAL_REVIEWER?.trim() || "tvardev";
+}

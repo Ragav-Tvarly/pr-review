@@ -28,6 +28,8 @@ npm run check                                           # tsc + eslint + node --
 
 Repos: `GITHUB_REPOS` is the list of repos **enabled** for the bot; each user sees only the enabled repos they can access (`lib/github/access.ts`), and PR pages / fires for other repos 404 or are refused. Enabling a repo: `review/README.md` step 5.
 
+Workflow: author runs Score / Review & fix on their PR → **Request review** (PR header; `FINAL_REVIEWER`, default tvardev, pinned first; marks a draft ready) → it lands in the senior dev's "Needs your review" tab → approve / request changes → merge.
+
 Routes: `/` list, `/pr/{owner}/{repo}/{n}` overview, `/commits`, `/files`. `?preview=review` on an
 overview shows `fixtures/review.json` without a real review.
 
