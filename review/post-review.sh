@@ -45,8 +45,9 @@ REVIEW_URL=$(printf '%s' "$OUT" | jq -r '.html_url // empty')
 log "review $REVIEW_URL"
 
 # --- 2. map inline comment ids back onto findings (for dashboard replies) ----
-gh api "$API/pulls/$N/reviews/$REVIEW_ID/comments?per_page=100" --paginate \
-  | jq -s 'add // [] | map({path, line: (.line // .original_line), id})' >/tmp/review-comments.json
+# the per-review endpoint returns only the legacy `position`; the PR-level one carries `line`
+gh api "$API/pulls/$N/comments?per_page=100" --paginate \
+  | jq -s --argjson rid "$REVIEW_ID" 'add // [] | map(select(.pull_request_review_id == $rid) | {path, line: (.line // .original_line), id})' >/tmp/review-comments.json
 jq --slurpfile c /tmp/review-comments.json '
   .findings |= map(. as $f | ($c[0] | map(select(.path == $f.path and .line == $f.line)) | .[0].id) as $id
                    | if $id then . + {commentId: $id} else . end)' "$JSON" >/tmp/review-with-ids.json
@@ -70,10 +71,11 @@ fi
 log "sticky comment $COMMENT_URL"
 
 # --- 4. risk label ----------------------------------------------------------
-declare -A COLOR=([critical]=b60205 [high]=d93f0b [important]=fbca04 [normal]=0e8a16 [low]=c5def5 [safe]=bfe5bf)
+# plain case, not an associative array: macOS bash 3.2 has none
+color() { case "$1" in critical) echo b60205;; high) echo d93f0b;; important) echo fbca04;; normal) echo 0e8a16;; low) echo c5def5;; *) echo bfe5bf;; esac; }
 for r in critical high important normal low safe; do
   gh api "$API/labels/risk%3A%20$r" >/dev/null 2>&1 \
-    || jq -n --arg n "risk: $r" --arg c "${COLOR[$r]}" '{name: $n, color: $c, description: "tvar review risk"}' | gh api -X POST "$API/labels" --input - >/dev/null
+    || jq -n --arg n "risk: $r" --arg c "$(color "$r")" '{name: $n, color: $c, description: "tvar review risk"}' | gh api -X POST "$API/labels" --input - >/dev/null
 done
 for existing in $(gh api "$API/issues/$N/labels" --jq '.[].name | select(startswith("risk: "))' | sed 's/ /%20/g'); do
   [ "$existing" = "risk:%20$RISK" ] || gh api -X DELETE "$API/issues/$N/labels/$existing" >/dev/null || true
