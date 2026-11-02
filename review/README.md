@@ -10,11 +10,11 @@ label). The dashboard reads those. There is no other data store.
 
 ## One-time setup (signed in as admin@tvarlaunchpad.com)
 
-1. **GitHub App**: an org owner installs the Claude GitHub App on `tvardev/tvar-business` and on
+1. **GitHub App**: the `tvardev` account owner installs the Claude GitHub App on `tvardev/tvar-business` and on
    this repo (needed for the PR-event trigger and for cloning).
 2. **Connect GitHub** for the admin account at claude.ai/code (GitHub authentication options).
 3. **Cloud environment** (claude.ai/code → environments): create "tvar review" with Trusted network
-   and the environment variable `GH_TOKEN=<fine-grained PAT of the machine user tvar-review-bot>`
+   and the environment variable `GH_TOKEN=<classic PAT (repo scope) of the machine user tvar-review-bot>`
    (Pull requests R/W, Issues R/W, Contents R, Metadata R on tvar-business). Smoke test in a session:
    `gh api rate_limit`, `gh api repos/tvardev/tvar-business/pulls?per_page=1`, `gh api user --jq .login`
    (expects `tvar-review-bot`). Do **not** test with `gh pr list`; it fails by design.

@@ -49,11 +49,11 @@ mode (`REVIEW.md` fix section) has never run in the cloud; the scheduled task it
 
 ## Next steps (hand-off checklist, `docs/PLAN.md` bottom)
 
-Blocked on accounts/permissions (user or org owner does these, tracked in `owed list` #145–#149):
+Blocked on accounts/permissions (`tvardev` is a personal account, not an org; tracked in `owed list` #148, #149, #177–#180):
 
-1. Two GitHub OAuth Apps (dev `http://localhost:3010/api/auth/callback/github`, prod Vercel domain).
-2. Machine user `tvar-review-bot` + fine-grained PAT (PRs R/W, Issues R/W, Contents R, Metadata R).
-3. Org owner installs the Claude GitHub App on `tvar-business` and this repo.
+1. Two GitHub OAuth Apps under Ragav-Tvarly (dev `http://localhost:3010/api/auth/callback/github`, prod Vercel domain).
+2. Machine user `tvar-review-bot`, added by tvardev as Write collaborator on both repos, + **classic** PAT `repo` scope (fine-grained PATs cannot access another user's repos).
+3. tvardev installs the Claude GitHub App on `tvar-business` and this repo.
 4. As **admin@tvarlaunchpad.com**: connect GitHub, cloud env `GH_TOKEN=<bot PAT>`, create task
    "tvar PR review" (PR opened+synchronize non-draft + API trigger), put fire URL/token in Vercel.
 5. Transfer this repo from `Ragav-Tvarly` to `tvardev`.

@@ -142,10 +142,10 @@ Verify: manual task run on a small PR posts review + sticky + label as `tvar-rev
 | # | Step | Who |
 |---|---|---|
 | 1 | Create private repo `tvardev/pr-review` | Ragav |
-| 2 | Two GitHub OAuth Apps under the tvardev org (dev callback `http://localhost:3000/api/auth/callback/github`, prod `https://<vercel-domain>/api/auth/callback/github`) | Org owner (if on a personal account, owner must approve third-party access) |
+| 2 | Two GitHub OAuth Apps (dev callback `http://localhost:3010/api/auth/callback/github`, prod `https://<vercel-domain>/api/auth/callback/github`). `tvardev` is a personal account, not an org, so the apps live under Ragav-Tvarly; an OAuth App acts with the signed-in user's own access, its owner does not matter | Ragav |
 | 3 | Vercel project, Node 22, env: `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `GITHUB_REPOS`, `ROUTINE_FIRE_URL`, `ROUTINE_FIRE_TOKEN`, `REVIEW_SCORE_BAR=80`, `REVIEW_FIX_ROUNDS=3` | Ragav |
-| 4 | Machine user `tvar-review-bot`: collaborator (write) on tvar-business; fine-grained PAT (Pull requests R/W, Issues R/W, Contents R, Metadata R), 1-year expiry + reminder | Org owner + bot account holder |
-| 5 | Install the Claude GitHub App on `tvar-business` and `pr-review` | Org owner |
+| 4 | Machine user `tvar-review-bot`: tvardev adds it as collaborator (Write) on tvar-business and pr-review; **classic** PAT with `repo` scope, 1-year expiry + reminder. A fine-grained PAT cannot reach a repo owned by another personal account, only the token owner's own or an org's | tvardev + bot account holder |
+| 5 | Install the Claude GitHub App on `tvar-business` and `pr-review` | tvardev (account owner) |
 | 6 | Signed in as **admin@tvarlaunchpad.com**: connect GitHub; cloud environment with `GH_TOKEN=<bot PAT>`, Trusted network; smoke test `gh api rate_limit`, `gh api repos/tvardev/tvar-business/pulls?per_page=1`, `gh api user --jq .login` (expects `tvar-review-bot`). Do not test with `gh pr list`; it fails by design | Admin account holder |
 | 7 | Same account: create task "tvar PR review": prompt "Follow review/REVIEW.md in the pr-review checkout"; repos tvar-business (first), pr-review; triggers GitHub `pull_request` opened + synchronize with is-draft=false, plus API trigger → copy fire URL/token into Vercel. Run once manually on a small PR before enabling triggers | Admin account holder |
 | 8 | Team signs in once; confirm "Needs your review" tab is right per person | Everyone |
