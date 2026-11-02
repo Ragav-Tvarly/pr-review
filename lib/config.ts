@@ -27,19 +27,24 @@ export function scoreBar(): number {
 }
 
 /**
- * Senior dev(s) who give the final review and merge (FINAL_REVIEWER, comma-separated; offered in
- * "Request review"). They see and act on every PR; everyone else sees only the PRs they opened.
+ * Senior dev(s): they see and act on every PR in a repo, do the final review and merge; everyone else sees
+ * only the PRs they opened. FINAL_REVIEWER is comma-separated: a bare login is a default senior for every
+ * repo, "owner/repo=login" sets the senior(s) of that repo instead (e.g. "tvardev,Tvar-Launchpad/tecoloti=Ragav-Tvarly").
  */
-export function seniors(): string[] {
-  const list = (process.env.FINAL_REVIEWER ?? "tvardev").split(",").map((s) => s.trim()).filter(Boolean);
-  return list.length ? list : ["tvardev"];
+export function seniorsFor(repo: string): string[] {
+  const entries = (process.env.FINAL_REVIEWER ?? "tvardev").split(",").map((s) => s.trim()).filter(Boolean);
+  const own = entries.filter((e) => e.includes("=") && e.split("=")[0]!.trim().toLowerCase() === repo.toLowerCase()).map((e) => e.split("=")[1]!.trim());
+  if (own.length) return own;
+  const defaults = entries.filter((e) => !e.includes("="));
+  return defaults.length ? defaults : ["tvardev"];
 }
 
-export function isSenior(login: string): boolean {
-  return seniors().some((s) => s.toLowerCase() === login.toLowerCase());
+/** The repos (of those given) where this login is a senior. */
+export function seniorRepos(login: string, repoList: string[]): string[] {
+  return repoList.filter((r) => seniorsFor(r).some((s) => s.toLowerCase() === login.toLowerCase()));
 }
 
-/** Devs only work on their own PRs; seniors on all. */
-export function canSeePr(viewer: { login: string; isSenior: boolean }, author: string): boolean {
-  return viewer.isSenior || viewer.login.toLowerCase() === author.toLowerCase();
+/** Seniors of the repo see every PR there; others only their own. */
+export function canSeePr(viewer: { login: string; seniorRepos: string[] }, repo: string, author: string): boolean {
+  return viewer.seniorRepos.some((r) => r.toLowerCase() === repo.toLowerCase()) || viewer.login.toLowerCase() === author.toLowerCase();
 }

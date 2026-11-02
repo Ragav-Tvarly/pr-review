@@ -1,7 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { headers } from "next/headers";
 import { getToken } from "next-auth/jwt";
-import { devToken, isSenior, repos } from "@/lib/config";
+import { devToken, repos, seniorRepos } from "@/lib/config";
 import { repoAccess } from "@/lib/github/access";
 
 const GITHUB_API = "https://api.github.com";
@@ -17,7 +17,7 @@ export class GitHubError extends Error {
 }
 
 /** `repos`: the enabled repos this user can read (what the dashboard shows); `pushRepos`: those they can push to. */
-export type Viewer = { login: string; repos: string[]; pushRepos: string[]; isSenior: boolean };
+export type Viewer = { login: string; repos: string[]; pushRepos: string[]; seniorRepos: string[] };
 
 /** The signed-in user's GitHub token, read server-side from the Auth.js cookie. */
 async function userToken(): Promise<string> {
@@ -37,7 +37,7 @@ let devViewer: Promise<Viewer> | undefined;
 export async function viewer(): Promise<Viewer> {
   if (devToken()) {
     const dev = devToken()!;
-    devViewer ??= Promise.all([rest<{ login: string }>("/user"), repoAccess(dev)]).then(([me, access]) => ({ login: me.login, ...access, isSenior: isSenior(me.login) }));
+    devViewer ??= Promise.all([rest<{ login: string }>("/user"), repoAccess(dev)]).then(([me, access]) => ({ login: me.login, ...access, seniorRepos: seniorRepos(me.login, access.repos) }));
     return devViewer;
   }
   const token = await getToken({
@@ -50,7 +50,7 @@ export async function viewer(): Promise<Viewer> {
   // and changed permissions show up without signing out, and older cookies without the list still work.
   const accessToken = token.accessToken;
   const access = await unstable_cache(() => repoAccess(accessToken), ["access", token.login, ...repos()], { revalidate: 300 })();
-  return { login: token.login, ...access, isSenior: isSenior(token.login) };
+  return { login: token.login, ...access, seniorRepos: seniorRepos(token.login, access.repos) };
 }
 
 /**

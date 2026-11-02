@@ -15,9 +15,9 @@ export type FireResult = { fired: number[]; failed: { number: number; error: str
 export async function fireReviews(repo: string, numbers: number[], mode: "review" | "fix" = "review"): Promise<FireResult> {
   const me = await viewer(); // throws when not signed in
   if (!hasRepo(me.repos, repo)) return { fired: [], failed: numbers.map((number) => ({ number, error: `${repo} is not enabled for review` })), configured: true };
-  if (!me.isSenior) {
-    // devs run the bot on their own PRs only
-    const own = await Promise.all(numbers.map((n) => rest<{ user: { login: string } }>(`/repos/${repo}/pulls/${n}`).then((p) => canSeePr(me, p.user.login)).catch(() => false)));
+  if (!canSeePr(me, repo, "")) {
+    // not a senior of this repo: run the bot on your own PRs only
+    const own = await Promise.all(numbers.map((n) => rest<{ user: { login: string } }>(`/repos/${repo}/pulls/${n}`).then((p) => canSeePr(me, repo, p.user.login)).catch(() => false)));
     const notOwn = numbers.filter((_, i) => !own[i]);
     if (notOwn.length) return { fired: [], failed: notOwn.map((number) => ({ number, error: "you can only run the review on your own PRs" })), configured: true };
   }

@@ -59,7 +59,7 @@ export const PR_LIST_TAG = "pr-list";
 export async function listOpenPRs(): Promise<PrSummary[]> {
   const me = await viewer();
   const all = await cachedRead(["list", ...me.repos], [PR_LIST_TAG], (token) => fetchOpenPRs(token, me.repos));
-  return all.filter((pr) => canSeePr(me, pr.author.login));
+  return all.filter((pr) => canSeePr(me, pr.repo, pr.author.login));
 }
 
 async function fetchOpenPRs(token: string, repos: string[]): Promise<PrSummary[]> {

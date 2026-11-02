@@ -25,11 +25,9 @@ export async function listNotifications(): Promise<Notice[]> {
   const since = new Date(Date.now() - 14 * 86_400_000).toISOString();
   const threads = await rest<Thread[]>(`/notifications?all=true&per_page=50&since=${since}`);
   let prs = threads.filter((t) => t.subject.type === "PullRequest" && t.subject.url && hasRepo(me.repos, t.repository.full_name));
-  if (!me.isSenior) {
-    // devs: only notifications about PRs they opened (others' PRs are not visible to them)
-    const authors = await Promise.all(prs.map((t) => prAuthor(t.subject.url!)));
-    prs = prs.filter((_, i) => canSeePr(me, authors[i] ?? ""));
-  }
+  // only PRs this user can see: everything in repos where they are senior, else PRs they opened
+  const authors = await Promise.all(prs.map((t) => (canSeePr(me, t.repository.full_name, "") ? "" : prAuthor(t.subject.url!))));
+  prs = prs.filter((t, i) => canSeePr(me, t.repository.full_name, authors[i] ?? ""));
   prs = prs.slice(0, LIMIT);
   return Promise.all(
     prs.map(async (t) => {
