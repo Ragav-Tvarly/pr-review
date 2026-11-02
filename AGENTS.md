@@ -66,7 +66,7 @@ reply/resolve, conversation comment, update branch, live refresh after a run, no
 | Claude GitHub App on `Ragav-Tvarly/pr-review` (installation 177735144, linked to the dev@ claude.ai account) | done |
 | TvarReview Write collaborator on `tvar-business` + `pr-review`, invites accepted | done |
 | Senior dev: install the Claude GitHub App on `tvar-business` | asked |
-| Tecoloti (`Tvar-Launchpad/tecoloti`, Ragav is dev + senior): Ragav requested the Claude app install; **tvardev (org owner) approves** at github.com/organizations/Tvar-Launchpad/settings/installations; TvarReview Write invite sent, **accept as TvarReview** | waiting |
+| Tecoloti (`Tvar-Launchpad/tecoloti`, Ragav is dev + senior): Ragav requested the Claude app install; **tvardev (org owner) approves** at github.com/organizations/Tvar-Launchpad/settings/installations; TvarReview Write: accepted | waiting on app approval |
 | Senior dev: Vercel project (Node 22), report the domain | asked |
 | Prod OAuth App under Ragav-Tvarly with callback `https://<vercel-domain>/api/auth/callback/github` | after domain |
 | Vercel env: `AUTH_SECRET`, `AUTH_GITHUB_ID/SECRET`, `GITHUB_REPOS=tvardev/tvar-business,Tvar-Launchpad/tecoloti`, `FINAL_REVIEWER=tvardev,Tvar-Launchpad/tecoloti=Ragav-Tvarly`, `ROUTINE_FIRE_URL/TOKEN`, `REVIEW_SCORE_BAR=80` | after domain |
