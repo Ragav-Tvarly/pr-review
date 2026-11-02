@@ -183,7 +183,7 @@ Round 1 is the normal review above. Then, while `score < BAR` (BAR = 80 unless t
 3. Run the checks for the packages you touched (`npx tsc --noEmit -p <app>` and the relevant
    `npm test -w <pkg>` or `node --test`). If a check fails because of your change, revert that change
    and mark the finding `not-fixed` with the reason.
-4. Commit as the bot: `git -c user.name=tvar-review-bot -c user.email=tvar-review-bot@users.noreply.github.com commit -am "fix(review): C1, W2 [bot]"`, then `git push origin HEAD:$HEAD_REF`.
+4. Commit as the bot: `git -c user.name=TvarReview -c user.email=TvarReview@users.noreply.github.com commit -am "fix(review): C1, W2 [bot]"`, then `git push origin HEAD:$HEAD_REF`.
    If the push is rejected, post the review and stop; say so in `scope.note`.
 5. Re-review the new head (section 5 again, diffing `prev..HEAD` for what you changed), append a
    round to `rounds` with the fixed IDs, set `status: "fixed"` on them, re-score, and post again.

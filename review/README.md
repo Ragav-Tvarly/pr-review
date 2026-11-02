@@ -14,10 +14,10 @@ label). The dashboard reads those. There is no other data store.
    this repo (needed for the PR-event trigger and for cloning).
 2. **Connect GitHub** for the admin account at claude.ai/code (GitHub authentication options).
 3. **Cloud environment** (claude.ai/code → environments): create "tvar review" with Trusted network
-   and the environment variable `GH_TOKEN=<classic PAT (repo scope) of the machine user tvar-review-bot>`
+   and the environment variable `GH_TOKEN=<classic PAT (repo scope) of the machine user TvarReview>`
    (Pull requests R/W, Issues R/W, Contents R, Metadata R on tvar-business). Smoke test in a session:
    `gh api rate_limit`, `gh api repos/tvardev/tvar-business/pulls?per_page=1`, `gh api user --jq .login`
-   (expects `tvar-review-bot`). Do **not** test with `gh pr list`; it fails by design.
+   (expects `TvarReview`). Do **not** test with `gh pr list`; it fails by design.
 4. **Scheduled task** (claude.ai/code/routines → create):
    - Name: `tvar PR review`
    - Prompt: `Follow review/REVIEW.md in the pr-review checkout exactly. It is the whole assignment.`
@@ -27,7 +27,7 @@ label). The dashboard reads those. There is no other data store.
      repository tvar-business; plus an **API trigger**. Copy its Fire URL and token into the Vercel
      project as `ROUTINE_FIRE_URL` / `ROUTINE_FIRE_TOKEN`.
    - Run once with **Run now** on a small PR before enabling the triggers. Check the run log for the
-     identity line (`posting as tvar-review-bot`) and the review URL.
+     identity line (`posting as TvarReview`) and the review URL.
 5. **Fire payload format** (what the dashboard sends): `owner/repo#NUMBER` optionally followed by
    `fix`. The prompt ignores anything else in the payload.
 

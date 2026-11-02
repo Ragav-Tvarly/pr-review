@@ -50,7 +50,7 @@ export function ReviewButtons({ repo, number, canPush, bar, hasReview, size = "s
           <AlertDialogHeader>
             <AlertDialogTitle>Let the bot push fixes to this branch?</AlertDialogTitle>
             <AlertDialogDescription>
-              The review bot will review, apply only clear-cut fixes, run checks, commit as tvar-review-bot and push to this PR&apos;s branch, then re-score. It repeats until the score reaches {bar} or it runs out of rounds. Product decisions are left for you as questions on the thread. It stops if someone else pushes meanwhile.
+              The review bot will review, apply only clear-cut fixes, run checks, commit as TvarReview and push to this PR&apos;s branch, then re-score. It repeats until the score reaches {bar} or it runs out of rounds. Product decisions are left for you as questions on the thread. It stops if someone else pushes meanwhile.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

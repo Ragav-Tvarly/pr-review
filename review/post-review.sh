@@ -12,7 +12,7 @@ log() { printf '%s\n' "$*" >&2; }
 # --- identity ---------------------------------------------------------------
 LOGIN=$(gh api user --jq .login)
 log "posting as $LOGIN"
-[ "$LOGIN" = "tvar-review-bot" ] || log "WARNING: expected tvar-review-bot; set GH_TOKEN in the cloud environment"
+[ "$LOGIN" = "TvarReview" ] || log "WARNING: expected TvarReview; set GH_TOKEN in the cloud environment"
 
 # --- validate ---------------------------------------------------------------
 jq -e '.v == 1 and (.pr|type=="number") and (.headSha|test("^[0-9a-f]{7,40}$")) and (.score|type=="number")

@@ -75,7 +75,7 @@ async function fetchWeekStats(token: string): Promise<WeekStats> {
       }
       for (const r of pr.reviews.nodes) {
         if (!r.author || r.submittedAt < since.toISOString() || r.author.login === pr.author?.login) continue;
-        if (r.author.__typename === "Bot" || r.author.login.endsWith("[bot]") || r.author.login === "tvar-review-bot") continue;
+        if (r.author.__typename === "Bot" || r.author.login.endsWith("[bot]") || r.author.login === "TvarReview") continue;
         reviews += 1;
         const p = person(r.author.login, r.author.avatarUrl);
         p.reviews += 1;
