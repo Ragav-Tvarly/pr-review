@@ -11,7 +11,7 @@ label). The dashboard reads those. There is no other data store.
 ## One-time setup (signed in as admin@tvarlaunchpad.com)
 
 1. **GitHub App**: the `tvardev` account owner installs the Claude GitHub App on `tvardev/tvar-business` and on
-   this repo (needed for the PR-event trigger and for cloning).
+   this repo (needed for cloning).
 2. **Connect GitHub** for the admin account at claude.ai/code (GitHub authentication options).
 3. **Cloud environment** (claude.ai/code → environments): create "tvar review" with Network access **Full** (no "Trusted" option any more; do not use Network secrets, `gh` needs the env var)
    and the environment variable `GH_TOKEN=<classic PAT (repo scope) of the machine user TvarReview>`
@@ -30,10 +30,12 @@ label). The dashboard reads those. There is no other data store.
    - Prompt: `Follow review/REVIEW.md in the pr-review checkout exactly. It is the whole assignment.`
    - Repositories: `tvardev/tvar-business` **first**, then this repo.
    - Environment: "tvar review". Model: the default; effort high.
-   - Triggers: GitHub event `pull_request` → `opened` and `synchronize`, filter *Is draft = false*,
-     repository tvar-business; plus an **API trigger**. Copy its Fire URL and token into the Vercel
-     project as `ROUTINE_FIRE_URL` / `ROUTINE_FIRE_TOKEN`.
-   - Run once with **Run now** on a small PR before enabling the triggers. Check the run log for the
+   - Trigger: **API only**. Reviews are on request (decided 2026-11-02): no GitHub event trigger, no
+     schedule. Copy the Fire URL and token into the Vercel project as `ROUTINE_FIRE_URL` /
+     `ROUTINE_FIRE_TOKEN`. The fire endpoint needs headers `anthropic-version: 2023-06-01` and
+     `anthropic-beta: experimental-cc-routine-2026-04-01` (`lib/review/fire.ts` sends both).
+   - Connectors: all off (the bot reads PR text anyone can write).
+   - Test by firing `owner/repo#N` (not **Run now**: with no payload it finds no PR and stops). Check the run log for the
      identity line (`posting as TvarReview`) and the review URL.
 5. **Fire payload format** (what the dashboard sends): `owner/repo#NUMBER` optionally followed by
    `fix`. The prompt ignores anything else in the payload.

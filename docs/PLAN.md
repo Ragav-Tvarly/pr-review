@@ -29,7 +29,7 @@ Browser (teammate) ──cookie(JWE)──▶ Vercel: pr-review (Next 16 RSC + s
                                               ▼                                  ▼
 GitHub tvardev/tvar-business  ◀──REST (gh, bot PAT)──  Claude scheduled task "tvar PR review"
   PRs, files(viewed), reviews, labels                  account: admin@tvarlaunchpad.com
-  risk:* label + sticky comment <!-- tvar-review:v1 -->  triggers: PR opened/synchronize, API fire
+  risk:* label + sticky comment <!-- tvar-review:v1 -->  trigger: API fire only (on request)
   bot review as TvarReview                         repos: tvar-business (1st), pr-review (2nd)
         ▲ GitHub trigger via Claude GitHub App          runs review/REVIEW.md → review/post-review.sh
 ```
@@ -122,7 +122,7 @@ Verify on a throwaway PR: RIGHT/LEFT comments land on correct lines, Approve wor
 6. Write `/tmp/review.json` + `/tmp/review.md`, then run `post-review.sh` (located with `find` on first run; path recorded in `review/README.md`).
 
 Create `review/post-review.sh` (bash, `gh api` + `jq`, REST only): print `gh api user` login and warn if not `TvarReview`; validate JSON (`v==1`, headSha, risk, verdict, files array; refuse >30 KB, cap findings at 40); `POST /pulls/{n}/reviews` `{commit_id, event:"COMMENT", body, comments[]}` with 422 fallback to `subject_type:"file"`, then to no comments; sticky upsert via `GET /issues/{n}/comments --paginate` (marker + same login → `PATCH /issues/comments/{id}`, else POST) with body = marker JSON + Summary/Verdict only (full report lives on the review); labels via `GET /labels/{name}` → 404 → `POST /labels`, then `DELETE` other `risk:*` from the issue and `POST /issues/{n}/labels`; non-zero exit on any failure; print review and comment URLs. Create `lib/review/parse.ts` + test, `overview/ai-review.tsx` (summary, verdict, risk/score, stale banner + Re-review, findings linking to `/files#path:Lline`), `score-all-button.tsx`, `fireReviews` action; file tree gets importance/severity badges, "Sort by importance", AI noise collapse. `pr-table.tsx` gets row checkboxes + header select-all; the button reads "Score all PRs" with nothing selected and "Score N selected" otherwise (same `fireReviews(numbers)` action, max 10 per click, duplicates harmless via upsert).
-Verify: manual task run on a small PR posts review + sticky + label as `TvarReview`; dashboard shows risk and findings; finding click scrolls to line; push → stale → synchronize re-run clears it; Re-review and Score all fire (task history); #668 run keeps JSON under size with honest scope; `node --test` parse fixture.
+Verify: manual task run on a small PR posts review + sticky + label as `TvarReview`; dashboard shows risk and findings; finding click scrolls to line; push → stale banner → Re-review clears it; Re-review and Score all fire (task history); #668 run keeps JSON under size with honest scope; `node --test` parse fixture.
 
 **P5 Review → fix → re-score loop (opt-in per PR).** This is the cloud version of the local `/ye` skill (review → product gate → fix). Not what Graphene does (its score is triage only); built because the user wants PR quality driven up to a bar automatically.
 - Trigger: PR page button "Review & fix to bar" (and a "Fix" variant in the selection toolbar). Fire payload `text: "668 fix"`; the opt-in wording in `REVIEW.md` accepts only `<number>` or `<number> fix`. Bar = env `REVIEW_SCORE_BAR` (default 80), max rounds = env `REVIEW_FIX_ROUNDS` (default 3). Button shown only when the viewer has `permissions.push`, and confirms with an AlertDialog that the bot will push commits to the PR branch.
@@ -147,7 +147,7 @@ Verify: manual task run on a small PR posts review + sticky + label as `TvarRevi
 | 4 | Machine user `TvarReview`: tvardev adds it as collaborator (Write) on tvar-business and pr-review; **classic** PAT with `repo` scope, 1-year expiry + reminder. A fine-grained PAT cannot reach a repo owned by another personal account, only the token owner's own or an org's | tvardev + bot account holder |
 | 5 | Install the Claude GitHub App on `tvar-business` and `pr-review` | tvardev (account owner) |
 | 6 | Signed in as **admin@tvarlaunchpad.com**: connect GitHub; cloud environment with `GH_TOKEN=<bot PAT>` as an environment variable, Network access Full; smoke test `gh api rate_limit`, `gh api repos/tvardev/tvar-business/pulls?per_page=1`, `gh api user --jq .login` (expects `TvarReview`). Do not test with `gh pr list`; it fails by design | Admin account holder |
-| 7 | Same account: create task "tvar PR review": prompt "Follow review/REVIEW.md in the pr-review checkout"; repos tvar-business (first), pr-review; triggers GitHub `pull_request` opened + synchronize with is-draft=false, plus API trigger → copy fire URL/token into Vercel. Run once manually on a small PR before enabling triggers | Admin account holder |
+| 7 | Same account: create task "tvar PR review": prompt "Follow review/REVIEW.md in the pr-review checkout"; repos tvar-business (first), pr-review; API trigger only (reviews are on request, no PR-event trigger) → copy fire URL/token into Vercel. Test by firing `owner/repo#N` | Admin account holder |
 | 8 | Team signs in once; confirm "Needs your review" tab is right per person | Everyone |
 
 Record items 2, 4, 5, 6, 7 with `~/.claude/bin/owed add` when implementation starts.

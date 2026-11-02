@@ -63,6 +63,6 @@ mode (`REVIEW.md` fix section) has never run in the cloud; the scheduled task it
 | Prod OAuth App under Ragav-Tvarly with callback `https://<vercel-domain>/api/auth/callback/github` | after domain |
 | admin@ claude.ai: cloud env "Tvar Review" (network Full); GitHub connection re-authorized as **TvarReview** (the proxy ignores `GH_TOKEN`, see `review/README.md` step 3); smoke test → `TvarReview` | done |
 | Routine "tvar PR review": pr-review only, API trigger (fire URL/token in password manager; needs headers `anthropic-version` + `anthropic-beta`), connectors off. Fired on PR #1: review + 5 inline + sticky + label posted as TvarReview; `commentId`s were null → retry fix in `post-review.sh`, re-fire to verify | in progress |
-| Add `tvar-business` (first) to the routine + PR-event trigger (opened/synchronize, non-draft); test fix mode on a throwaway PR | after app install |
+| Add `tvar-business` (first) to the routine. **No PR-event trigger**: reviews run only on request (dashboard buttons → API fire). Test fix mode on a throwaway PR | after app install |
 | First manual task run on a small PR; team sign-in check | after task |
 | Transfer repo `Ragav-Tvarly/pr-review` → `tvardev` (Ragav then needs re-adding as collaborator) | last, needs Ragav's OK |
