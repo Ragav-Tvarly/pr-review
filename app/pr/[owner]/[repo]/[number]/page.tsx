@@ -4,6 +4,7 @@ import { People } from "@/components/overview/people";
 import { viewer } from "@/lib/github/client";
 import { getPullRequest } from "@/lib/github/pull-request";
 import { scoreBar } from "@/lib/config";
+import { hasRepo } from "@/lib/github/access";
 
 import { devToken } from "@/lib/config";
 import { parseMarker } from "@/lib/review/parse";
@@ -25,7 +26,7 @@ export default async function OverviewPage({ params, searchParams }: { params: P
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
       <div className="space-y-6">
-        <AiReview pr={pr!} canPush={me.canPush} bar={scoreBar()} />
+        <AiReview pr={pr!} canPush={hasRepo(me.pushRepos, pr!.repo)} bar={scoreBar()} />
         <article aria-labelledby="description-heading" className="rounded-lg border border-border">
           <h2 id="description-heading" className="border-b border-border px-4 py-2.5 text-sm font-medium">
             Description

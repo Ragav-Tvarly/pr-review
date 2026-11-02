@@ -1,5 +1,4 @@
-import { cachedRead, graphql } from "./client";
-import { repos } from "@/lib/config";
+import { cachedRead, graphql, viewer } from "./client";
 import { parseMarker } from "@/lib/review/parse";
 
 export type PersonStats = { login: string; avatarUrl: string; reviews: number; approvals: number; merged: number; opened: number; scores: number[] };
@@ -44,10 +43,11 @@ export function weekStart(now = new Date()): Date {
 }
 
 export async function getWeekStats(): Promise<WeekStats> {
-  return cachedRead(["week", "v2", ...repos()], ["pr-list"], (token) => fetchWeekStats(token), 300);
+  const { repos } = await viewer();
+  return cachedRead(["week", "v2", ...repos], ["pr-list"], (token) => fetchWeekStats(token, repos), 300);
 }
 
-async function fetchWeekStats(token: string): Promise<WeekStats> {
+async function fetchWeekStats(token: string, repos: string[]): Promise<WeekStats> {
   const since = weekStart();
   const sinceIso = since.toISOString().slice(0, 10);
   const people = new Map<string, PersonStats>();
@@ -61,7 +61,7 @@ async function fetchWeekStats(token: string): Promise<WeekStats> {
   let reviews = 0;
   const scores: number[] = [];
 
-  for (const repo of repos()) {
+  for (const repo of repos) {
     const data = await graphql<{ search: { nodes: Node[] } }>(SEARCH, { q: `repo:${repo} is:pr updated:>=${sinceIso}` }, token);
     for (const pr of data.search.nodes) {
       if (!pr?.number) continue;

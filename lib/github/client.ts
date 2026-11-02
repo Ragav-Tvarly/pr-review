@@ -1,7 +1,8 @@
 import { unstable_cache } from "next/cache";
 import { headers } from "next/headers";
 import { getToken } from "next-auth/jwt";
-import { devToken, primaryRepo } from "@/lib/config";
+import { devToken } from "@/lib/config";
+import { repoAccess } from "@/lib/github/access";
 
 const GITHUB_API = "https://api.github.com";
 
@@ -15,7 +16,8 @@ export class GitHubError extends Error {
   }
 }
 
-export type Viewer = { login: string; canPush: boolean };
+/** `repos`: the enabled repos this user can read (what the dashboard shows); `pushRepos`: those they can push to. */
+export type Viewer = { login: string; repos: string[]; pushRepos: string[] };
 
 /** The signed-in user's GitHub token, read server-side from the Auth.js cookie. */
 async function userToken(): Promise<string> {
@@ -34,10 +36,8 @@ let devViewer: Promise<Viewer> | undefined;
 
 export async function viewer(): Promise<Viewer> {
   if (devToken()) {
-    devViewer ??= Promise.all([
-      rest<{ login: string }>("/user"),
-      rest<{ permissions?: { push?: boolean } }>(`/repos/${primaryRepo()}`),
-    ]).then(([me, repo]) => ({ login: me.login, canPush: Boolean(repo.permissions?.push) }));
+    const dev = devToken()!;
+    devViewer ??= Promise.all([rest<{ login: string }>("/user"), repoAccess(dev)]).then(([me, access]) => ({ login: me.login, ...access }));
     return devViewer;
   }
   const token = await getToken({
@@ -46,7 +46,7 @@ export async function viewer(): Promise<Viewer> {
     secureCookie: process.env.NODE_ENV === "production",
   });
   if (!token?.login) throw new GitHubError(401, "Not signed in");
-  return { login: token.login, canPush: token.canPush ?? false };
+  return { login: token.login, repos: token.repos ?? [], pushRepos: token.pushRepos ?? [] };
 }
 
 /**

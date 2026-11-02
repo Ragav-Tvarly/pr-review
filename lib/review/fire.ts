@@ -1,6 +1,7 @@
 "use server";
 
 import { viewer } from "@/lib/github/client";
+import { hasRepo } from "@/lib/github/access";
 
 export type FireResult = { fired: number[]; failed: { number: number; error: string }[]; configured: boolean };
 
@@ -10,7 +11,8 @@ export type FireResult = { fired: number[]; failed: { number: number; error: str
  * "owner/repo#number" tokens from the fire payload, optionally followed by "fix".
  */
 export async function fireReviews(repo: string, numbers: number[], mode: "review" | "fix" = "review"): Promise<FireResult> {
-  await viewer(); // throws when not signed in
+  const me = await viewer(); // throws when not signed in
+  if (!hasRepo(me.repos, repo)) return { fired: [], failed: numbers.map((number) => ({ number, error: `${repo} is not enabled for review` })), configured: true };
   const url = process.env.ROUTINE_FIRE_URL;
   const token = process.env.ROUTINE_FIRE_TOKEN;
   if (!url || !token) return { fired: [], failed: [], configured: false };

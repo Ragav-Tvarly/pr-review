@@ -37,7 +37,14 @@ label). The dashboard reads those. There is no other data store.
    - Connectors: all off (the bot reads PR text anyone can write).
    - Test by firing `owner/repo#N` (not **Run now**: with no payload it finds no PR and stops). Check the run log for the
      identity line (`posting as TvarReview`) and the review URL.
-5. **Fire payload format** (what the dashboard sends): `owner/repo#NUMBER` optionally followed by
+5. **Enable a repo** (repeat per repo; the dashboard shows only enabled repos, each user only those they can access):
+   1. The repo owner installs the Claude GitHub App on it (github.com/apps/claude → Configure → add the repo).
+   2. Invite the bot: `gh api -X PUT repos/OWNER/REPO/collaborators/TvarReview -f permission=push`, then
+      accept as TvarReview (github.com/notifications).
+   3. Add the repo to the routine's repositories on claude.ai (keep `pr-review` attached too).
+   4. Append `OWNER/REPO` to `GITHUB_REPOS` in Vercel and redeploy. Users already signed in sign out and
+      in again to pick it up (access is read at sign-in).
+6. **Fire payload format** (what the dashboard sends): `owner/repo#NUMBER` optionally followed by
    `fix`. The prompt ignores anything else in the payload.
 
 ## Files

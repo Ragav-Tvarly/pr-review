@@ -1,13 +1,13 @@
-/** Repos shown on the dashboard, "owner/name" each. The first one gates sign-in. */
+/**
+ * Repos enabled for the review bot, "owner/name" each. A repo is enabled once the Claude GitHub App is
+ * installed on it, TvarReview is a Write collaborator and it is attached to the routine (review/README.md).
+ * Each user sees only the enabled repos they can access; sign-in needs at least one.
+ */
 export function repos(): string[] {
   return (process.env.GITHUB_REPOS ?? "tvardev/tvar-business")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-}
-
-export function primaryRepo(): string {
-  return repos()[0] ?? "tvardev/tvar-business";
 }
 
 /**

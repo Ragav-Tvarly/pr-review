@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 
 const TAB_IDS = new Set<string>(TABS.map((t) => t.id));
 
-export function PrTable({ prs, viewer }: { prs: PrSummary[]; viewer: string }) {
+export function PrTable({ prs, viewer, repos }: { prs: PrSummary[]; viewer: string; repos: string[] }) {
   const router = useRouter();
   const params = useSearchParams();
   const tabParam = params.get("tab") ?? "all";
@@ -34,7 +34,6 @@ export function PrTable({ prs, viewer }: { prs: PrSummary[]; viewer: string }) {
 
   const counts = useMemo(() => countTabs(prs, viewer), [prs, viewer]);
   const authors = useMemo(() => [...new Set(prs.map((p) => p.author.login))].sort(), [prs]);
-  const repos = useMemo(() => [...new Set(prs.map((p) => p.repo))].sort(), [prs]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();

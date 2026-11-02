@@ -26,6 +26,8 @@ GITHUB_REPOS=Ragav-Tvarly/pr-review GITHUB_DEV_TOKEN=$(gh auth token) npm run de
 npm run check                                           # tsc + eslint + node --test
 ```
 
+Repos: `GITHUB_REPOS` is the list of repos **enabled** for the bot; each user sees only the enabled repos they can access (`lib/github/access.ts`), and PR pages / fires for other repos 404 or are refused. Enabling a repo: `review/README.md` step 5.
+
 Routes: `/` list, `/pr/{owner}/{repo}/{n}` overview, `/commits`, `/files`. `?preview=review` on an
 overview shows `fixtures/review.json` without a real review.
 

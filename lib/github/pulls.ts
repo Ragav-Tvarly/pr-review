@@ -1,6 +1,5 @@
-import { cachedRead, graphql } from "./client";
+import { cachedRead, graphql, viewer } from "./client";
 import { OPEN_PULL_REQUESTS } from "./queries";
-import { repos } from "@/lib/config";
 import { riskFromLabels, type Risk } from "@/lib/review/types";
 
 export type ReviewDecision = "APPROVED" | "CHANGES_REQUESTED" | "REVIEW_REQUIRED" | null;
@@ -57,12 +56,13 @@ type OpenPullRequestsData = {
 export const PR_LIST_TAG = "pr-list";
 
 export async function listOpenPRs(): Promise<PrSummary[]> {
-  return cachedRead(["list", ...repos()], [PR_LIST_TAG], (token) => fetchOpenPRs(token));
+  const { repos } = await viewer();
+  return cachedRead(["list", ...repos], [PR_LIST_TAG], (token) => fetchOpenPRs(token, repos));
 }
 
-async function fetchOpenPRs(token: string): Promise<PrSummary[]> {
+async function fetchOpenPRs(token: string, repos: string[]): Promise<PrSummary[]> {
   const perRepo = await Promise.all(
-    repos().map(async (repo) => {
+    repos.map(async (repo) => {
       const [owner, name] = repo.split("/");
       const data = await graphql<OpenPullRequestsData>(OPEN_PULL_REQUESTS, { owner, name }, token);
       const nodes = data.repository?.pullRequests.nodes ?? [];

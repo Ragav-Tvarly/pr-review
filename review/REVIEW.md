@@ -12,9 +12,9 @@ so decide, do the work, post the result, and stop.
   labels any other way.
 - Never push to any branch except the PR's own head branch, and only in **fix mode**. Never
   force-push. Never touch `main` or `staging`.
-- The repository under review is cloned as the first repository of this task and, for PR events,
-  is checked out at the PR head. This file lives in the second repository (`pr-review`).
-  Locate it with: `SCRIPTS=$(dirname "$(find / -path '*/pr-review/review/post-review.sh' -not -path '*/node_modules/*' 2>/dev/null | head -1)")`.
+- Every repository enabled for review is attached to this task, plus `pr-review` (where this file
+  lives). The repository under review is the one named in the request; find its checkout in step 2.
+  Locate the scripts with: `SCRIPTS=$(dirname "$(find / -path '*/pr-review/review/post-review.sh' -not -path '*/node_modules/*' 2>/dev/null | head -1)")`.
 - Prefer `rg` for searches. Read the diff **per file** (`git diff origin/$BASE...HEAD -- <path>`),
   never the whole diff in one command.
 
@@ -36,7 +36,15 @@ Fetch metadata: `gh api repos/$OWNER/$REPO/pulls/$N` → `title`, `body`, `base.
 
 ## 2. Prepare the checkout
 
+Find the checkout whose `origin` is `$OWNER/$REPO` and work inside it. If there is none, the repo is
+not attached to this task: print `$OWNER/$REPO is not enabled for review` and stop.
+
 ```bash
+for g in $(find / -maxdepth 5 -type d -name .git -not -path '*/node_modules/*' 2>/dev/null); do
+  d=$(dirname "$g"); git -C "$d" remote get-url origin 2>/dev/null | grep -qiE "[:/]$OWNER/$REPO(\.git)?$" && { TARGET=$d; break; }
+done
+[ -n "${TARGET:-}" ] || { echo "$OWNER/$REPO is not enabled for review"; exit 0; }
+cd "$TARGET"
 git fetch origin "$BASE" "+refs/pull/$N/head:refs/remotes/origin/pr-$N"
 [ "$(git rev-parse HEAD)" = "$HEAD_SHA" ] || git checkout -q "$HEAD_SHA"
 git diff --stat "origin/$BASE...HEAD" -- . ':(exclude)*lock.json' ':(exclude)*.lock' ':(exclude)*.snap' ':(exclude).next/*' ':(exclude)dist/*'
