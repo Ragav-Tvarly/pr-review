@@ -40,6 +40,8 @@ export type PrDetail = {
   mergeable: "MERGEABLE" | "CONFLICTING" | "UNKNOWN";
   mergeStateStatus: "BEHIND" | "BLOCKED" | "CLEAN" | "DIRTY" | "DRAFT" | "HAS_HOOKS" | "UNKNOWN" | "UNSTABLE";
   viewerCanUpdate: boolean;
+  /** commits on the base the branch does not have yet; >0 offers "Update branch" (mergeStateStatus says BEHIND only under strict protection) */
+  behindBy: number;
   headRefOid: string;
   baseRefName: string;
   headRefName: string;
@@ -49,7 +51,7 @@ export type PrDetail = {
   reviewRequests: string[];
   latestReviews: { author: string; avatarUrl: string; state: string; submittedAt: string; url: string }[];
   files: PrFile[];
-  comments: { id: number; author: string; body: string; createdAt: string; url: string }[];
+  comments: { id: number; author: string; avatarUrl: string; body: string; bodyHTML: string; createdAt: string; url: string }[];
   /** Latest bot review parsed from the sticky comment, if any. */
   review: ParsedReview | null;
   commits: Commit[];
@@ -93,7 +95,7 @@ type PullRequestData = {
       reviewRequests: { nodes: { requestedReviewer: { login?: string } | null }[] };
       latestReviews: { nodes: { author: { login: string; avatarUrl: string } | null; state: string; submittedAt: string; url: string }[] };
       files: { totalCount: number; pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: FileNode[] } | null;
-      comments: { nodes: { databaseId: number; author: { login: string } | null; body: string; createdAt: string; url: string }[] };
+      comments: { nodes: { databaseId: number; author: { login: string; avatarUrl: string } | null; body: string; bodyHTML: string; createdAt: string; url: string }[] };
       commits: {
         totalCount: number;
         nodes: {
@@ -165,7 +167,13 @@ async function fetchPullRequest(token: string, owner: string, name: string, numb
   if (repo.mergeCommitAllowed) mergeMethods.push("MERGE");
   if (repo.rebaseMergeAllowed) mergeMethods.push("REBASE");
 
-  const comments = pr.comments.nodes.map((c) => ({ id: c.databaseId, author: c.author?.login ?? "", body: c.body, createdAt: c.createdAt, url: c.url }));
+  const behindBy =
+    pr.state === "OPEN"
+      ? await rest<{ behind_by: number }>(`/repos/${owner}/${name}/compare/${encodeURIComponent(pr.baseRefName)}...${pr.headRefOid}`, { token })
+          .then((c) => c.behind_by)
+          .catch(() => 0)
+      : 0;
+  const comments = pr.comments.nodes.map((c) => ({ id: c.databaseId, author: c.author?.login ?? "", avatarUrl: c.author?.avatarUrl ?? "", body: c.body, bodyHTML: c.bodyHTML, createdAt: c.createdAt, url: c.url }));
 
   return {
     id: pr.id,
@@ -185,6 +193,7 @@ async function fetchPullRequest(token: string, owner: string, name: string, numb
     mergeable: pr.mergeable,
     mergeStateStatus: pr.mergeStateStatus,
     viewerCanUpdate: pr.viewerCanUpdate,
+    behindBy,
     headRefOid: pr.headRefOid,
     baseRefName: pr.baseRefName,
     headRefName: pr.headRefName,
@@ -266,7 +275,7 @@ async function fetchFilePatches(token: string, owner: string, name: string, numb
   return out;
 }
 
-export type ReviewComment = { id: number; path: string; line: number | null; side: "LEFT" | "RIGHT"; body: string; author: string; avatarUrl: string; createdAt: string; url: string; inReplyTo: number | null };
+export type ReviewComment = { id: number; path: string; line: number | null; side: "LEFT" | "RIGHT"; body: string; author: string; avatarUrl: string; createdAt: string; url: string; inReplyTo: number | null; threadId: string | null; resolved: boolean };
 
 /** Existing inline review comments (all reviewers, including the bot), newest last. */
 export const getReviewComments = cache((owner: string, name: string, number: number): Promise<ReviewComment[]> =>
@@ -290,9 +299,23 @@ async function fetchReviewComments(token: string, owner: string, name: string, n
         createdAt: c.created_at,
         url: c.html_url,
         inReplyTo: c.in_reply_to_id ?? null,
+        threadId: null,
+        resolved: false,
       })),
     );
     if (batch.length < 100) break;
   }
-  return out;
+  // thread node ids + resolved state (REST has neither); keyed by every comment id in the thread
+  type Threads = { repository: { pullRequest: { reviewThreads: { nodes: { id: string; isResolved: boolean; comments: { nodes: { databaseId: number }[] } }[] } } | null } | null };
+  const t = await graphql<Threads>(
+    `query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { pullRequest(number: $number) { reviewThreads(first: 100) { nodes { id isResolved comments(first: 100) { nodes { databaseId } } } } } } }`,
+    { owner, name, number },
+    token,
+  ).catch(() => null);
+  const byComment = new Map<number, { id: string; isResolved: boolean }>();
+  for (const th of t?.repository?.pullRequest?.reviewThreads.nodes ?? []) for (const c of th.comments.nodes) byComment.set(c.databaseId, th);
+  return out.map((c) => {
+    const th = byComment.get(c.id);
+    return th ? { ...c, threadId: th.id, resolved: th.isResolved } : c;
+  });
 }

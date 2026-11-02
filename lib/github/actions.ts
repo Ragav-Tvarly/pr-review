@@ -118,3 +118,54 @@ export async function requestReview(repo: string, number: number, prId: string, 
     return fail(e);
   }
 }
+
+/** A general comment on the PR conversation. */
+export async function addPrComment(repo: string, number: number, body: string): Promise<ActionResult> {
+  const text = body.trim();
+  if (!text) return { ok: false, error: "Write a comment first" };
+  try {
+    await rest(`/repos/${repo}/issues/${number}/comments`, { method: "POST", body: JSON.stringify({ body: text }) });
+    await revalidatePr(repo, number);
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function setThreadResolved(repo: string, number: number, threadId: string, resolved: boolean): Promise<ActionResult> {
+  const mutation = resolved
+    ? `mutation($input: ResolveReviewThreadInput!) { resolveReviewThread(input: $input) { thread { isResolved } } }`
+    : `mutation($input: UnresolveReviewThreadInput!) { unresolveReviewThread(input: $input) { thread { isResolved } } }`;
+  try {
+    await graphql(mutation, { input: { threadId } });
+    await revalidatePr(repo, number);
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Close without merging, or reopen. */
+export async function setPrClosed(repo: string, number: number, prId: string, closed: boolean): Promise<ActionResult> {
+  const mutation = closed
+    ? `mutation($input: ClosePullRequestInput!) { closePullRequest(input: $input) { pullRequest { state } } }`
+    : `mutation($input: ReopenPullRequestInput!) { reopenPullRequest(input: $input) { pullRequest { state } } }`;
+  try {
+    await graphql(mutation, { input: { pullRequestId: prId } });
+    await revalidatePr(repo, number);
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Merge the base into the head ("Update branch"). GitHub does it asynchronously and refuses on conflicts. */
+export async function updateBranch(repo: string, number: number, expectedHeadSha: string): Promise<ActionResult> {
+  try {
+    await rest(`/repos/${repo}/pulls/${number}/update-branch`, { method: "PUT", body: JSON.stringify({ expected_head_sha: expectedHeadSha }) });
+    await revalidatePr(repo, number);
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}

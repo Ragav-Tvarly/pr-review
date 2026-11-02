@@ -65,7 +65,7 @@ export const PULL_REQUEST = /* GraphQL */ `
           pageInfo { hasNextPage endCursor }
           nodes { path additions deletions changeType viewerViewedState }
         }
-        comments(last: 50) { nodes { databaseId author { login } body createdAt url } }
+        comments(last: 50) { nodes { databaseId author { login avatarUrl } body bodyHTML createdAt url } }
         commits(first: 100) {
           totalCount
           nodes {

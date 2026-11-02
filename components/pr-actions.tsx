@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, GitMerge, MessageSquarePlus } from "lucide-react";
+import { ChevronDown, GitMerge, GitPullRequestClosed, MessageSquarePlus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ReviewDialog } from "@/components/review-dialog";
 import { RequestReview } from "@/components/request-review";
-import { mergePR, setDraft, type MergeMethod } from "@/lib/github/actions";
+import { mergePR, setDraft, setPrClosed, updateBranch, type MergeMethod } from "@/lib/github/actions";
 import type { PrDetail } from "@/lib/github/pull-request";
 
 const METHOD_LABEL: Record<MergeMethod, string> = { SQUASH: "Squash and merge", MERGE: "Create a merge commit", REBASE: "Rebase and merge" };
@@ -26,6 +26,7 @@ const METHOD_LABEL: Record<MergeMethod, string> = { SQUASH: "Squash and merge", 
 export function PrActions({ pr, viewer, canPush, finalReviewer }: { pr: PrDetail; viewer: string; canPush: boolean; finalReviewer: string }) {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [mergeMethod, setMergeMethod] = useState<MergeMethod | null>(null);
+  const [confirmClose, setConfirmClose] = useState(false);
   const [pending, start] = useTransition();
   const router = useRouter();
   const isAuthor = pr.author.login === viewer;
@@ -52,6 +53,30 @@ export function PrActions({ pr, viewer, canPush, finalReviewer }: { pr: PrDetail
     });
   };
 
+  const setClosed = (closed: boolean) =>
+    start(async () => {
+      setConfirmClose(false);
+      const res = await setPrClosed(pr.repo, pr.number, pr.id, closed);
+      if (!res.ok) return void toast.error(res.error);
+      toast.success(closed ? `Closed #${pr.number} without merging.` : `Reopened #${pr.number}.`);
+      router.refresh();
+    });
+
+  const update = () =>
+    start(async () => {
+      const res = await updateBranch(pr.repo, pr.number, pr.headRefOid);
+      if (!res.ok) return void toast.error(res.error);
+      toast.success(`Merging ${pr.baseRefName} into ${pr.headRefName}… This takes a few seconds.`);
+      setTimeout(() => router.refresh(), 5000);
+    });
+
+  if (pr.state === "CLOSED" && pr.viewerCanUpdate) {
+    return (
+      <Button variant="outline" size="sm" onClick={() => setClosed(false)} disabled={pending}>
+        Reopen
+      </Button>
+    );
+  }
   if (pr.state !== "OPEN") return null;
 
   return (
@@ -61,6 +86,12 @@ export function PrActions({ pr, viewer, canPush, finalReviewer }: { pr: PrDetail
         Review changes
       </Button>
       {pr.viewerCanUpdate && <RequestReview pr={pr} finalReviewer={finalReviewer} />}
+      {pr.viewerCanUpdate && pr.behindBy > 0 && (
+        <Button variant="outline" size="sm" onClick={update} disabled={pending} title={`${pr.behindBy} new commit${pr.behindBy === 1 ? "" : "s"} on ${pr.baseRefName}; merge them into this branch`}>
+          <RefreshCw className="mr-1.5 h-4 w-4" aria-hidden="true" />
+          Update branch
+        </Button>
+      )}
       {pr.viewerCanUpdate && (
         <Button variant="outline" size="sm" onClick={toggleDraft} disabled={pending}>
           {pr.isDraft ? "Ready for review" : "Convert to draft"}
@@ -89,6 +120,24 @@ export function PrActions({ pr, viewer, canPush, finalReviewer }: { pr: PrDetail
           {mergeHint}
         </span>
       )}
+      {pr.viewerCanUpdate && (
+        <Button variant="ghost" size="sm" onClick={() => setConfirmClose(true)} disabled={pending}>
+          <GitPullRequestClosed className="mr-1.5 h-4 w-4" aria-hidden="true" />
+          Close
+        </Button>
+      )}
+      <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Close #{pr.number} without merging?</AlertDialogTitle>
+            <AlertDialogDescription>The branch and all comments stay. You can reopen it later.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => setClosed(true)}>Close PR</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <ReviewDialog open={reviewOpen} onOpenChange={setReviewOpen} repo={pr.repo} number={pr.number} prId={pr.id} isAuthor={isAuthor} threads={[]} />
       <AlertDialog open={mergeMethod !== null} onOpenChange={(o) => !o && setMergeMethod(null)}>
         <AlertDialogContent>

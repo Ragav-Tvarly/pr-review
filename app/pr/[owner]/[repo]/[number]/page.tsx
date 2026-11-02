@@ -1,6 +1,7 @@
 import { AiReview } from "@/components/overview/ai-review";
 import { Checks } from "@/components/overview/checks";
 import { People } from "@/components/overview/people";
+import { Conversation } from "@/components/overview/conversation";
 import { viewer } from "@/lib/github/client";
 import { getPullRequest } from "@/lib/github/pull-request";
 import { scoreBar } from "@/lib/config";
@@ -41,6 +42,7 @@ export default async function OverviewPage({ params, searchParams }: { params: P
             <p className="px-4 py-6 text-sm text-muted-foreground">No description provided.</p>
           )}
         </article>
+        <Conversation pr={pr!} />
       </div>
       <aside className="space-y-4">
         <Checks pr={pr!} />
