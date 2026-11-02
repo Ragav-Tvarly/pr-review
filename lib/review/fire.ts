@@ -8,7 +8,8 @@ export type FireResult = { fired: number[]; failed: { number: number; error: str
 /**
  * Ask the Claude Code scheduled task (owned by admin@tvarlaunchpad.com) to review these PRs.
  * One fire per PR so each review runs in its own session. The task's prompt only accepts
- * "owner/repo#number" tokens from the fire payload, optionally followed by "fix".
+ * "owner/repo#number" tokens from the fire payload, optionally followed by "fix" and "@login" (who asked;
+ * the bot mentions them so the result shows up in their notification bell).
  */
 export async function fireReviews(repo: string, numbers: number[], mode: "review" | "fix" = "review"): Promise<FireResult> {
   const me = await viewer(); // throws when not signed in
@@ -23,7 +24,7 @@ export async function fireReviews(repo: string, numbers: number[], mode: "review
         const res = await fetch(url, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", "anthropic-version": "2023-06-01", "anthropic-beta": "experimental-cc-routine-2026-04-01" },
-          body: JSON.stringify({ text: `${repo}#${number}${mode === "fix" ? " fix" : ""}` }),
+          body: JSON.stringify({ text: `${repo}#${number}${mode === "fix" ? " fix" : ""} @${me.login}` }),
           cache: "no-store",
         });
         if (!res.ok) return { number, error: `${res.status} ${(await res.text()).slice(0, 200)}` };

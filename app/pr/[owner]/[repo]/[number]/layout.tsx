@@ -7,6 +7,7 @@ import { PrTabsNav } from "@/components/pr-tabs-nav";
 import { viewer } from "@/lib/github/client";
 import { getPullRequest } from "@/lib/github/pull-request";
 import { hasRepo } from "@/lib/github/access";
+import { finalReviewer } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,7 @@ export default async function PrLayout({ params, children }: { params: Params; c
       <div className="border-b border-border bg-card/40">
         <div className="mx-auto w-full max-w-7xl px-4 pt-6">
           <PrHeader pr={pr} />
-          <PrTabsNav pr={pr} actions={<PrActions pr={pr} viewer={me.login} canPush={hasRepo(me.pushRepos, pr.repo)} />} />
+          <PrTabsNav pr={pr} actions={<PrActions pr={pr} viewer={me.login} canPush={hasRepo(me.pushRepos, pr.repo)} finalReviewer={finalReviewer()} />} />
         </div>
       </div>
       <main className="mx-auto w-full max-w-7xl px-4 py-6">{children}</main>
