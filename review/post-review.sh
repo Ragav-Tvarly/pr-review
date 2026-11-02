@@ -23,6 +23,13 @@ jq -e '.v == 1 and (.pr|type=="number") and (.headSha|test("^[0-9a-f]{7,40}$")) 
 SIZE=$(wc -c <"$JSON"); [ "$SIZE" -le 30000 ] || { log "review.json is ${SIZE}B (> 30 KB)"; exit 2; }
 FINDINGS=$(jq '.findings|length' "$JSON"); [ "$FINDINGS" -le 40 ] || { log "more than 40 findings"; exit 2; }
 HEAD_SHA=$(jq -r .headSha "$JSON")
+# who asked for this run (from the fire payload): mentioned in the review so it lands in their notifications
+REQUESTER="${REQUESTER:-}"
+if printf '%s' "$REQUESTER" | grep -qE '^[A-Za-z0-9-]{1,39}$'; then
+  cp "$MD" /tmp/review-body.md   # a copy, so repeated fix rounds never stack the line
+  printf '\n\n_Requested by @%s · score %s · risk %s_\n' "$REQUESTER" "$(jq -r .score "$JSON")" "$(jq -r .risk "$JSON")" >>/tmp/review-body.md
+  MD=/tmp/review-body.md
+fi
 RISK=$(jq -r .risk "$JSON")
 
 # --- 1. carry thread ids from the previous round -----------------------------

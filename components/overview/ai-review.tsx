@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Clock, HelpCircle, Sparkles } from "lucide
 import { Confetti } from "@/components/confetti";
 import { DecisionReply } from "@/components/overview/decision-reply";
 import { ReviewButtons } from "@/components/review-buttons";
+import { RunWatcher } from "@/components/run-watcher";
 import { RiskBadge } from "@/components/risk-badge";
 import { ScoreRing } from "@/components/score-ring";
 import { fileAnchor } from "@/components/diff/types";
@@ -39,6 +40,7 @@ export function AiReview({ pr, canPush, bar }: { pr: PrDetail; canPush: boolean;
         <div className="mt-4 flex justify-center gap-2">
           <ReviewButtons repo={pr.repo} number={pr.number} canPush={canPush} bar={bar} hasReview={false} size="default" />
         </div>
+        <RunWatcher repo={pr.repo} number={pr.number} reviewedAt={null} score={null} roundTimes={[]} bar={bar} />
       </section>
     );
   }
@@ -85,7 +87,8 @@ export function AiReview({ pr, canPush, bar }: { pr: PrDetail; canPush: boolean;
             {review.rounds.length > 1 && <Trajectory rounds={review.rounds} bar={bar} />}
           </div>
           <div className="flex flex-wrap gap-2 sm:flex-col">
-            <ReviewButtons repo={pr.repo} number={pr.number} canPush={canPush} bar={bar} hasReview />
+            <ReviewButtons repo={pr.repo} number={pr.number} canPush={canPush} bar={bar} hasReview score={review.score} />
+            <RunWatcher repo={pr.repo} number={pr.number} reviewedAt={review.reviewedAt} score={review.score} roundTimes={review.rounds.map((r) => r.at)} bar={bar} />
           </div>
         </div>
 

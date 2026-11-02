@@ -2,6 +2,7 @@ import Link from "next/link";
 import { GitPullRequest } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UserMenu } from "@/components/user-menu";
+import { NotificationBell } from "@/components/notification-bell";
 import { Kbd } from "@/components/kbd";
 import type { Viewer } from "@/lib/github/client";
 
@@ -19,6 +20,7 @@ export function SiteHeader({ viewer }: { viewer: Viewer }) {
             <Kbd>K</Kbd>
             <span className="ml-1">to search</span>
           </p>
+          <NotificationBell />
           <ThemeToggle />
           <UserMenu login={viewer.login} />
         </div>
