@@ -12,7 +12,7 @@ Decisions made with the user (2026-10-29):
 - GitHub Actions are billing-blocked in tvardev: nothing depends on Actions.
 
 Verified facts the design rests on:
-- Scheduled tasks: triggers combine (GitHub `pull_request` opened/synchronize with is-draft filter, API `/fire` with bearer token + `text` payload wrapped in `<routine-fire-payload>` that the prompt must opt into, 30 fires/hour/task). Repo listed first is checked out at the PR head on PR events. `gh`, git, jq, ripgrep pre-installed. `GH_TOKEN` env var passes through unchanged.
+- Scheduled tasks: triggers combine (GitHub `pull_request` opened/synchronize with is-draft filter, API `/fire` with bearer token + `text` payload wrapped in `<routine-fire-payload>` that the prompt must opt into, 30 fires/hour/task). Repo listed first is checked out at the PR head on PR events. `gh`, git, jq, ripgrep pre-installed. ~~`GH_TOKEN` env var passes through unchanged.~~ Wrong (2026-11-02): the proxy overrides it with the claude.ai account's GitHub connection; see `review/README.md` step 3.
 - **Cloud sessions block GitHub GraphQL** (403 even with own token; `gh pr`/`gh issue` fail). Bot-side scripts use REST only via `gh api repos/...` and `git diff`. The dashboard (user tokens, Vercel) may use GraphQL freely.
 - GraphQL verified by introspection: `PullRequestChangedFile.viewerViewedState`, `markFileAsViewed`, `unmarkFileAsViewed`, `addPullRequestReview`, `mergePullRequest`, `convertPullRequestToDraft`, `markPullRequestReadyForReview`.
 - Repo under review: `tvardev/tvar-business`, 10 open PRs, 12 collaborators. PR #668 = 97 files, +10941 (size target for the diff viewer).
@@ -146,7 +146,7 @@ Verify: manual task run on a small PR posts review + sticky + label as `TvarRevi
 | 3 | Vercel project, Node 22, env: `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `GITHUB_REPOS`, `ROUTINE_FIRE_URL`, `ROUTINE_FIRE_TOKEN`, `REVIEW_SCORE_BAR=80`, `REVIEW_FIX_ROUNDS=3` | Ragav |
 | 4 | Machine user `TvarReview`: tvardev adds it as collaborator (Write) on tvar-business and pr-review; **classic** PAT with `repo` scope, 1-year expiry + reminder. A fine-grained PAT cannot reach a repo owned by another personal account, only the token owner's own or an org's | tvardev + bot account holder |
 | 5 | Install the Claude GitHub App on `tvar-business` and `pr-review` | tvardev (account owner) |
-| 6 | Signed in as **admin@tvarlaunchpad.com**: connect GitHub; cloud environment with `GH_TOKEN=<bot PAT>`, Trusted network; smoke test `gh api rate_limit`, `gh api repos/tvardev/tvar-business/pulls?per_page=1`, `gh api user --jq .login` (expects `TvarReview`). Do not test with `gh pr list`; it fails by design | Admin account holder |
+| 6 | Signed in as **admin@tvarlaunchpad.com**: connect GitHub; cloud environment with `GH_TOKEN=<bot PAT>` as an environment variable, Network access Full; smoke test `gh api rate_limit`, `gh api repos/tvardev/tvar-business/pulls?per_page=1`, `gh api user --jq .login` (expects `TvarReview`). Do not test with `gh pr list`; it fails by design | Admin account holder |
 | 7 | Same account: create task "tvar PR review": prompt "Follow review/REVIEW.md in the pr-review checkout"; repos tvar-business (first), pr-review; triggers GitHub `pull_request` opened + synchronize with is-draft=false, plus API trigger → copy fire URL/token into Vercel. Run once manually on a small PR before enabling triggers | Admin account holder |
 | 8 | Team signs in once; confirm "Needs your review" tab is right per person | Everyone |
 

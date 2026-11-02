@@ -13,11 +13,18 @@ label). The dashboard reads those. There is no other data store.
 1. **GitHub App**: the `tvardev` account owner installs the Claude GitHub App on `tvardev/tvar-business` and on
    this repo (needed for the PR-event trigger and for cloning).
 2. **Connect GitHub** for the admin account at claude.ai/code (GitHub authentication options).
-3. **Cloud environment** (claude.ai/code → environments): create "tvar review" with Trusted network
+3. **Cloud environment** (claude.ai/code → environments): create "tvar review" with Network access **Full** (no "Trusted" option any more; do not use Network secrets, `gh` needs the env var)
    and the environment variable `GH_TOKEN=<classic PAT (repo scope) of the machine user TvarReview>`
    (Pull requests R/W, Issues R/W, Contents R, Metadata R on tvar-business). Smoke test in a session:
    `gh api rate_limit`, `gh api repos/tvardev/tvar-business/pulls?per_page=1`, `gh api user --jq .login`
    (expects `TvarReview`). Do **not** test with `gh pr list`; it fails by design.
+   **Observed 2026-11-02:** the cloud proxy replaces `GH_TOKEN` on `api.github.com` requests with the
+   claude.ai account's own GitHub connection (`gh api user` returned the connected user, rate limit
+   15000; the PAT itself verified locally as `TvarReview`). The bot identity is therefore whichever GitHub
+   user the routine's claude.ai account is connected to, not the env var. Fix applied: admin@'s claude.ai
+   GitHub connection was re-authorized as **TvarReview** (Repo picker → ⚙), after TvarReview became a Write
+   collaborator on both repos. Smoke test then printed `TvarReview`. Side effect: every cloud session on
+   admin@ acts on GitHub as TvarReview.
 4. **Scheduled task** (claude.ai/code/routines → create):
    - Name: `tvar PR review`
    - Prompt: `Follow review/REVIEW.md in the pr-review checkout exactly. It is the whole assignment.`

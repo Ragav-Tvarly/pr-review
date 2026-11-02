@@ -20,7 +20,7 @@ export async function fireReviews(repo: string, numbers: number[], mode: "review
       try {
         const res = await fetch(url, {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", "anthropic-beta": "experimental-cc-routine-2026-04-01" },
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", "anthropic-version": "2023-06-01", "anthropic-beta": "experimental-cc-routine-2026-04-01" },
           body: JSON.stringify({ text: `${repo}#${number}${mode === "fix" ? " fix" : ""}` }),
           cache: "no-store",
         });

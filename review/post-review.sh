@@ -46,8 +46,15 @@ log "review $REVIEW_URL"
 
 # --- 2. map inline comment ids back onto findings (for dashboard replies) ----
 # the per-review endpoint returns only the legacy `position`; the PR-level one carries `line`
-gh api "$API/pulls/$N/comments?per_page=100" --paginate \
-  | jq -s --argjson rid "$REVIEW_ID" 'add // [] | map(select(.pull_request_review_id == $rid) | {path, line: (.line // .original_line), id})' >/tmp/review-comments.json
+# the list lags right after the POST (cloud run 2026-11-02 mapped nothing), so retry until it shows up
+WANT=$(jq '[.findings[] | select(.path)] | length' "$JSON")   # upper bound; worst case ~18s of retries
+for _ in 1 2 3 4 5 6; do
+  gh api "$API/pulls/$N/comments?per_page=100" --paginate \
+    | jq -s --argjson rid "$REVIEW_ID" 'add // [] | map(select(.pull_request_review_id == $rid) | {path, line: (.line // .original_line), id})' >/tmp/review-comments.json
+  [ "$(jq length /tmp/review-comments.json)" -ge "$WANT" ] && break
+  sleep 3
+done
+log "mapped $(jq length /tmp/review-comments.json) inline comment id(s)"
 jq --slurpfile c /tmp/review-comments.json '
   .findings |= map(. as $f | ($c[0] | map(select(.path == $f.path and .line == $f.line)) | .[0].id) as $id
                    | if $id then . + {commentId: $id} else . end)' "$JSON" >/tmp/review-with-ids.json

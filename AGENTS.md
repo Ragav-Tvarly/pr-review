@@ -57,9 +57,12 @@ mode (`REVIEW.md` fix section) has never run in the cloud; the scheduled task it
 | Dev OAuth App "tvar review (dev)" under Ragav-Tvarly, callback `http://localhost:3010/api/auth/callback/github`; real sign-in verified | done |
 | Machine user **TvarReview** (dev@tvarlaunchpad.com), 2FA, **classic** PAT `repo` scope exp 2027-11-02 (fine-grained PATs cannot reach another user's repos); token in Ragav's password manager | done |
 | Claude GitHub App on `Ragav-Tvarly/pr-review` (installation 177735144, linked to the dev@ claude.ai account) | done |
-| Senior dev (tvardev): add TvarReview as **Write** collaborator on `tvar-business` + `pr-review`; install the Claude GitHub App on `tvar-business` | asked |
+| TvarReview Write collaborator on `tvar-business` + `pr-review`, invites accepted | done |
+| Senior dev: install the Claude GitHub App on `tvar-business` | asked |
 | Senior dev: Vercel project (Node 22, env per `.env.example`), report the domain | asked |
 | Prod OAuth App under Ragav-Tvarly with callback `https://<vercel-domain>/api/auth/callback/github` | after domain |
-| As **admin@tvarlaunchpad.com** on claude.ai: Connect GitHub (same installation), cloud env with `GH_TOKEN=<TvarReview PAT>`, smoke test `gh api user --jq .login` → `TvarReview`; create task "tvar PR review" (prompt: follow `review/REVIEW.md`; repos tvar-business first, pr-review; triggers PR opened+synchronize non-draft + API trigger); copy fire URL/token to Vercel. See `review/README.md` | next (admin machine) |
+| admin@ claude.ai: cloud env "Tvar Review" (network Full); GitHub connection re-authorized as **TvarReview** (the proxy ignores `GH_TOKEN`, see `review/README.md` step 3); smoke test → `TvarReview` | done |
+| Routine "tvar PR review": pr-review only, API trigger (fire URL/token in password manager; needs headers `anthropic-version` + `anthropic-beta`), connectors off. Fired on PR #1: review + 5 inline + sticky + label posted as TvarReview; `commentId`s were null → retry fix in `post-review.sh`, re-fire to verify | in progress |
+| Add `tvar-business` (first) to the routine + PR-event trigger (opened/synchronize, non-draft); test fix mode on a throwaway PR | after app install |
 | First manual task run on a small PR; team sign-in check | after task |
 | Transfer repo `Ragav-Tvarly/pr-review` → `tvardev` (Ragav then needs re-adding as collaborator) | last, needs Ragav's OK |
