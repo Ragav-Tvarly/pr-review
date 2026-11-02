@@ -43,15 +43,16 @@ jq --arg s "$SHA" '.pr=1 | .headSha=$s' fixtures/review.json > /tmp/review.json
 GH_TOKEN=$(gh auth token) bash review/post-review.sh Ragav-Tvarly/pr-review 1 /tmp/review.json fixtures/review.md
 ```
 
-## State (2026-11-02)
+## State (2026-11-02, end of day)
 
-Done and verified: P1–P4 + P6 UI; prod build passes; desktop + 500px layouts; `post-review.sh`
-end to end on PR #1 (review + inline comments, sticky JSON comment with `commentId` per finding, risk
-label); dashboard list/overview render the real review; "Decisions needed" → Post decision lands as a
-reply on the right inline thread.
+Verified for real: cloud routine posts as TvarReview on request (API fire); review + fix mode on
+throwaway PRs #1/#2 (fix: 65 → 98, one bot commit, no duplicate threads on re-review); `commentId`
+mapping; OAuth sign-in on localhost; enabled-repos + per-repo roles (dev sees only own PRs, confirmed
+by Ragav); notification bell. GitHub calls behind resolve/unresolve, update branch, close/reopen and
+comment verified against PR #2.
 
-Not yet exercised for real: the review dialog submit and the merge/draft actions (UI only); P5 fix
-mode (`REVIEW.md` fix section) has never run in the cloud; the scheduled task itself does not exist yet.
+Built but not clicked through in a browser yet: Request review, review dialog submit, merge, thread
+reply/resolve, conversation comment, update branch, live refresh after a run, notification dismiss.
 
 ## Next steps (hand-off checklist, `docs/PLAN.md` bottom)
 
@@ -65,10 +66,13 @@ mode (`REVIEW.md` fix section) has never run in the cloud; the scheduled task it
 | Claude GitHub App on `Ragav-Tvarly/pr-review` (installation 177735144, linked to the dev@ claude.ai account) | done |
 | TvarReview Write collaborator on `tvar-business` + `pr-review`, invites accepted | done |
 | Senior dev: install the Claude GitHub App on `tvar-business` | asked |
-| Senior dev: Vercel project (Node 22, env per `.env.example`), report the domain | asked |
+| Tecoloti (`Tvar-Launchpad/tecoloti`, Ragav is dev + senior): Ragav requested the Claude app install; **tvardev (org owner) approves** at github.com/organizations/Tvar-Launchpad/settings/installations; TvarReview Write invite sent, **accept as TvarReview** | waiting |
+| Senior dev: Vercel project (Node 22), report the domain | asked |
 | Prod OAuth App under Ragav-Tvarly with callback `https://<vercel-domain>/api/auth/callback/github` | after domain |
-| admin@ claude.ai: cloud env "Tvar Review" (network Full); GitHub connection re-authorized as **TvarReview** (the proxy ignores `GH_TOKEN`, see `review/README.md` step 3); smoke test → `TvarReview` | done |
-| Routine "tvar PR review": pr-review only, API trigger (fire URL/token in password manager; needs headers `anthropic-version` + `anthropic-beta`), connectors off. Fired on PR #1: review + 5 inline + sticky + label posted as TvarReview; `commentId`s were null → retry fix in `post-review.sh`, re-fire to verify | in progress |
-| Add `tvar-business` (first) to the routine. **No PR-event trigger**: reviews run only on request (dashboard buttons → API fire). Test fix mode on a throwaway PR | after app install |
-| First manual task run on a small PR; team sign-in check | after task |
+| Vercel env: `AUTH_SECRET`, `AUTH_GITHUB_ID/SECRET`, `GITHUB_REPOS=tvardev/tvar-business,Tvar-Launchpad/tecoloti`, `FINAL_REVIEWER=tvardev,Tvar-Launchpad/tecoloti=Ragav-Tvarly`, `ROUTINE_FIRE_URL/TOKEN`, `REVIEW_SCORE_BAR=80` | after domain |
+| admin@ claude.ai: cloud env "Tvar Review" (network Full); GitHub connection re-authorized as **TvarReview** (the proxy ignores `GH_TOKEN`, see `review/README.md` step 3) | done |
+| Routine "tvar PR review": API trigger only (fire URL/token in password manager; headers `anthropic-version` + `anthropic-beta`), connectors off, repos: `pr-review` | done |
+| Add `tvardev/tvar-business` and `Tvar-Launchpad/tecoloti` to the routine's repositories | after app installs |
+| Browser click-through (as Ragav, then tvardev); first real run on a small tvar-business / tecoloti PR; team sign-in | next |
+| Close throwaway PR #1 after the click-through (#2 closed) | after testing |
 | Transfer repo `Ragav-Tvarly/pr-review` → `tvardev` (Ragav then needs re-adding as collaborator) | last, needs Ragav's OK |
