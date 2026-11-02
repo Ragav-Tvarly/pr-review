@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell } from "lucide-react";
+import { Bell, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { listNotifications, markAllNoticesRead, markNoticeRead, type Notice } from "@/lib/github/notifications";
+import { dismissNotice, listNotifications, markAllNoticesRead, markNoticeRead, type Notice } from "@/lib/github/notifications";
 import { timeAgo } from "@/lib/format";
 import { prPath } from "@/lib/paths";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,10 @@ export function NotificationBell() {
     setItems((all) => all?.map((x) => (x.id === n.id ? { ...x, unread: false } : x)) ?? null);
     void markNoticeRead(n.id);
     router.push(prPath(n));
+  };
+  const dismiss = (n: Notice) => {
+    setItems((all) => all?.filter((x) => x.id !== n.id) ?? null);
+    void dismissNotice(n.id);
   };
   const readAll = () => {
     setItems((all) => all?.map((x) => ({ ...x, unread: false })) ?? null);
@@ -76,6 +80,23 @@ export function NotificationBell() {
                   </span>
                   {n.unread && <span className="sr-only">(unread)</span>}
                 </span>
+                <button
+                  type="button"
+                  className="-mr-1 shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                  aria-label={`Dismiss: ${n.text}`}
+                  title="Dismiss"
+                  // keep the click on the button: the menu item would otherwise select (open the PR) on pointer-up
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onPointerUp={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dismiss(n);
+                  }}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
               </DropdownMenuItem>
             ))
           )}

@@ -92,6 +92,11 @@ export async function markNoticeRead(id: string): Promise<void> {
   await rest(`/notifications/threads/${encodeURIComponent(id)}`, { method: "PATCH" }).catch(() => undefined);
 }
 
+/** Dismiss: GitHub's "mark as done", which removes the thread from the inbox until something new happens on it. */
+export async function dismissNotice(id: string): Promise<void> {
+  await rest(`/notifications/threads/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => undefined);
+}
+
 /** Marks read only in the enabled repos this user sees, not their whole GitHub inbox. */
 export async function markAllNoticesRead(): Promise<void> {
   const me = await viewer();
