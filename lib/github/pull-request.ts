@@ -109,7 +109,8 @@ type PullRequestData = {
       reviewRequests: { nodes: { requestedReviewer: { login?: string } | null }[] };
       latestReviews: { nodes: { author: { login: string; avatarUrl: string } | null; state: string; submittedAt: string; url: string }[] };
       files: { totalCount: number; pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: FileNode[] } | null;
-      comments: { nodes: { databaseId: number; author: { login: string; avatarUrl: string } | null; body: string; bodyHTML: string; createdAt: string; url: string }[] };
+      comments: { totalCount: number; nodes: { databaseId: number; author: { login: string; avatarUrl: string } | null; body: string; bodyHTML: string; createdAt: string; url: string }[] };
+      headCommit: { nodes: { commit: { statusCheckRollup: { state: CheckState; contexts: { nodes: CheckNode[] } } | null } }[] };
       reviews: {
         nodes: {
           databaseId: number;
@@ -132,7 +133,6 @@ type PullRequestData = {
             committedDate: string;
             url: string;
             author: { name: string; user: { login: string; avatarUrl: string } | null } | null;
-            statusCheckRollup: { state: CheckState; contexts: { nodes: CheckNode[] } } | null;
           };
         }[];
       };
@@ -185,7 +185,7 @@ async function fetchPullRequest(token: string, owner: string, name: string, numb
     page = f.pageInfo;
   }
 
-  const last = pr.commits.nodes[pr.commits.nodes.length - 1]?.commit.statusCheckRollup ?? null;
+  const last = pr.headCommit.nodes[0]?.commit.statusCheckRollup ?? null;
   const labels = pr.labels.nodes;
   const mergeMethods: PrDetail["mergeMethods"] = [];
   if (repo.squashMergeAllowed) mergeMethods.push("SQUASH");
@@ -247,7 +247,7 @@ async function fetchPullRequest(token: string, owner: string, name: string, numb
         url: r.url,
         comments: r.comments.nodes.map((c) => ({ id: c.databaseId, path: c.path, line: c.line ?? c.originalLine, bodyHTML: c.bodyHTML, url: c.url, isReply: c.replyTo !== null })),
       })),
-    review: findReview(comments, pr.headRefOid),
+    review: findReview(comments, pr.headRefOid) ?? (pr.comments.totalCount > comments.length ? await olderReview(owner, name, pr.number, pr.headRefOid, token) : null),
     commits: pr.commits.nodes.map(({ commit: c }) => ({
       oid: c.oid,
       abbreviatedOid: c.abbreviatedOid,
@@ -355,4 +355,19 @@ async function fetchReviewComments(token: string, owner: string, name: string, n
     const th = byComment.get(c.id);
     return th ? { ...c, threadId: th.id, resolved: th.isResolved } : c;
   });
+}
+
+/**
+ * The bot edits one summary comment in place, so on a PR with more than 100 comments it can be older than
+ * the comments fetched with the PR. Then look through all of them (REST, up to 1,000).
+ */
+async function olderReview(owner: string, name: string, number: number, headSha: string, token: string) {
+  type Raw = { id: number; body: string; html_url: string; created_at: string };
+  const all: { id: number; body: string; url: string; createdAt: string }[] = [];
+  for (let page = 1; page <= 10; page++) {
+    const batch = await rest<Raw[]>(`/repos/${owner}/${name}/issues/${number}/comments?per_page=100&page=${page}`, { token });
+    all.push(...batch.map((c) => ({ id: c.id, body: c.body, url: c.html_url, createdAt: c.created_at })));
+    if (batch.length < 100) break;
+  }
+  return findReview(all, headSha);
 }

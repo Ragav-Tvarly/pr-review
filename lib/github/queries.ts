@@ -65,7 +65,23 @@ export const PULL_REQUEST = /* GraphQL */ `
           pageInfo { hasNextPage endCursor }
           nodes { path additions deletions changeType viewerViewedState }
         }
-        comments(last: 50) { nodes { databaseId author { login avatarUrl } body bodyHTML createdAt url } }
+        comments(last: 100) { totalCount nodes { databaseId author { login avatarUrl } body bodyHTML createdAt url } }
+        # checks of the head commit (commits(first: 100) below stops at 100, so its last item is not the head on big PRs)
+        headCommit: commits(last: 1) {
+          nodes {
+            commit {
+              statusCheckRollup {
+                state
+                contexts(first: 100) {
+                  nodes {
+                    ... on CheckRun { name conclusion status detailsUrl }
+                    ... on StatusContext { context state targetUrl }
+                  }
+                }
+              }
+            }
+          }
+        }
         reviews(last: 30) {
           nodes {
             databaseId author { login avatarUrl } state bodyHTML submittedAt url
@@ -83,15 +99,6 @@ export const PULL_REQUEST = /* GraphQL */ `
               committedDate
               url
               author { name user { login avatarUrl } }
-              statusCheckRollup {
-                state
-                contexts(first: 20) {
-                  nodes {
-                    ... on CheckRun { name conclusion status detailsUrl }
-                    ... on StatusContext { context state targetUrl }
-                  }
-                }
-              }
             }
           }
         }
