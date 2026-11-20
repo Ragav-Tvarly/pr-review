@@ -43,26 +43,33 @@ jq --arg s "$SHA" '.pr=1 | .headSha=$s' fixtures/review.json > /tmp/review.json
 GH_TOKEN=$(gh auth token) bash review/post-review.sh Ragav-Tvarly/pr-review 1 /tmp/review.json fixtures/review.md
 ```
 
-## State (2026-11-02, end of day)
+## State (2026-11-20)
 
-Verified for real: cloud routine posts as TvarReview on request (API fire); review + fix mode on
-throwaway PRs #1/#2 (fix: 65 → 98, one bot commit, no duplicate threads on re-review); `commentId`
-mapping; OAuth sign-in on localhost; enabled-repos + per-repo roles (dev sees only own PRs, confirmed
-by Ragav); notification bell. GitHub calls behind resolve/unresolve, update branch, close/reopen and
-comment verified against PR #2.
+Verified for real: cloud routine posts as TvarReview on request (API fire), including from the dashboard's
+Re-review on PR #1 (2026-11-20, 49 s, score 84 → 92); a fire for a repo the routine is not attached to
+(tvar-business) stops in ~16 s without posting. Review + fix mode on throwaway PRs #1/#2 (fix: 65 → 98,
+one bot commit, no duplicate threads on re-review); `commentId` mapping; OAuth sign-in on localhost;
+enabled-repos + per-repo roles (dev view checked as Ragav on tvar-business: own PRs only, tabs Returned /
+To send / Waiting / Approved / Drafts, no Merge); notification bell; conversation shows human reviews and
+line comments; collapsible overview sections; run status line ("running" / "probably failed" after
+25 min); mark file viewed through the server-side role checks. GitHub calls behind resolve/unresolve,
+update branch, close/reopen and comment verified against PR #2.
 
-Built but not clicked through in a browser yet: Request review, review dialog submit, merge, thread
-reply/resolve, conversation comment, update branch, live refresh after a run, notification dismiss.
+Built but not clicked through yet: Request review, review dialog submit (incl. the senior's curated
+findings and the "Not an issue: …" thread reply the bot honours), merge, thread reply/resolve, update
+branch from the UI, notification dismiss, a refused action for a dev on someone else's PR.
 
-2026-11-20: senior curates the bot's findings on the overview (Include / Not an issue with reason / own
-points → prefilled review; "Not an issue: …" reply on the bot thread makes the next run drop it), and
-answered decisions show to everyone ("Decisions made"). Clicked through to the review dialog on the
-`?preview=review` fixture; submit, the thread reply and the bot honouring it are untested.
+Local dev on Eva's Mac mini: `.env.local` has the dev OAuth app, `ROUTINE_FIRE_URL/TOKEN`, all three repos
+and `FINAL_REVIEWER`, so plain `npm run dev` works. tvar-business is listed so its PRs show, but the bot
+cannot review it yet (see the table). Routine effort is **high** (was medium until 2026-11-20).
+
+Branch protection is not available on these private repos (free personal plan), so "only seniors merge"
+is enforced by the dashboard's server actions only; anyone with push access can still merge on github.com.
 
 ## Next steps (hand-off checklist, `docs/PLAN.md` bottom)
 
 `tvardev` is a **personal** GitHub account, not an org. Vercel is held by the senior dev. Progress on
-2026-11-02 (Ragav's laptop; `.env.local` there holds the dev OAuth app):
+2026-11-02 (Ragav's laptop; `.env.local` there holds the dev OAuth app); last checked 2026-11-20:
 
 | Step | Status |
 |---|---|
@@ -78,6 +85,6 @@ answered decisions show to everyone ("Decisions made"). Clicked through to the r
 | admin@ claude.ai: cloud env "Tvar Review" (network Full); GitHub connection re-authorized as **TvarReview** (the proxy ignores `GH_TOKEN`, see `review/README.md` step 3) | done |
 | Routine "tvar PR review": API trigger only (fire URL/token in password manager; headers `anthropic-version` + `anthropic-beta`), connectors off, repos: `pr-review` | done |
 | Add `tvardev/tvar-business` and `Tvar-Launchpad/tecoloti` to the routine's repositories | after app installs |
-| Browser click-through (as Ragav, then tvardev); first real run on a small tvar-business / tecoloti PR; team sign-in | next |
+| Browser click-through: dev view as Ragav done 2026-11-20; senior view as tvardev, review submit, merge; first real run on a small tvar-business / tecoloti PR; team sign-in | in progress |
 | Close throwaway PR #1 after the click-through (#2 closed) | after testing |
 | Transfer repo `Ragav-Tvarly/pr-review` → `tvardev` (Ragav then needs re-adding as collaborator) | last, needs Ragav's OK |

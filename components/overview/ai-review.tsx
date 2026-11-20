@@ -49,7 +49,9 @@ export function AiReview({ pr, canPush, bar, answers = {}, isReviewer = false }:
   // rejected by a reviewer: by the bot on a later run, or already replied "Not an issue: …" on its thread
   const rejection = (f: Finding) => (f.status === "dismissed" ? (f.dismissal ?? "") : f.gate !== "ask" && /^not an issue\b/i.test(answerOf(f)?.body ?? "") ? answerOf(f)!.body.replace(/^not an issue:?\s*/i, "") : null);
   const dismissed = review.findings.filter((f) => rejection(f) !== null);
-  const open = review.findings.filter((f) => f.status !== "fixed" && f.status !== "decided" && rejection(f) === null);
+  // the bot's own retracted findings: older reviews kept them as not-fixed with a "Withdrawn:" title
+  const withdrawn = (f: Finding) => f.status === "withdrawn" || /^withdrawn\b/i.test(f.title);
+  const open = review.findings.filter((f) => f.status !== "fixed" && f.status !== "decided" && !withdrawn(f) && rejection(f) === null);
   const asks = open.filter((f) => f.gate === "ask");
   // answered on the thread, or already applied by the bot: shown with the decision so the senior sees what was chosen
   const decided = review.findings.filter((f) => f.gate === "ask" && (f.status === "decided" || (f.status === "fixed" && (f.decision || answerOf(f)))));
@@ -169,9 +171,14 @@ export function AiReview({ pr, canPush, bar, answers = {}, isReviewer = false }:
               </ul>
             </div>
           )}
-          {review.findings.some((f) => f.status === "fixed" || f.status === "decided") && (
+          {review.findings.some((f) => f.status === "fixed" || f.status === "decided" || withdrawn(f)) && (
             <p className="mt-3 text-xs text-muted-foreground">
-              Resolved: {review.findings.filter((f) => f.status === "fixed" || f.status === "decided").map((f) => f.id).join(", ")}
+              {[
+                review.findings.some((f) => f.status === "fixed" || f.status === "decided") && `Resolved: ${review.findings.filter((f) => f.status === "fixed" || f.status === "decided").map((f) => f.id).join(", ")}`,
+                review.findings.some(withdrawn) && `Withdrawn by the bot: ${review.findings.filter(withdrawn).map((f) => f.id).join(", ")}`,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             </p>
           )}
           {(review.scope.note || review.scope.skipped.length > 0 || review.scope.skimmed.length > 0) && (

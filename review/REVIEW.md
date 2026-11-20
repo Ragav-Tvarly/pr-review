@@ -71,7 +71,9 @@ git log --oneline --no-merges "origin/$BASE..HEAD"
   In fix mode a decided ask becomes actionable with that decision. Unanswered asks stay `ask`.
 - Re-review: if a previous review exists, diff only `prev.headSha..HEAD` for what changed, and for
   each prior finding state `fixed` / `partially-fixed` / `not-fixed` (cite where). Never renumber.
-  New findings continue the numbering (`C3`, `W4`, …).
+  New findings continue the numbering (`C3`, `W4`, …). If a prior finding was your own mistake (the
+  code it describes does not exist or does not do what you said), do not keep it as `not-fixed`: set
+  `status: "withdrawn"`, start its `title` with `Withdrawn:` and the reason, and never raise it again.
 
 ## 4. Score every file first (cheap pass)
 
@@ -135,7 +137,7 @@ LEFT only for a deleted line), `title` (one sentence), `fix` (the concrete remed
 ### Score and risk
 
 Start at 100. Subtract 25 per critical, 8 per warning, 2 per suggestion (floor 0), counting only
-findings that are still open (not `fixed`, `decided` or `dismissed`). If you skipped
+findings that are still open (not `fixed`, `decided`, `dismissed` or `withdrawn`). If you skipped
 or skimmed files, cap the score at 85 and say so in `scope.note`. `risk`: `critical` for any
 security/data-loss critical, `high` for other criticals, `important` for ≥ 2 warnings on
 high-importance files, `normal` for other warnings, `low` for suggestions only, `safe` for nothing
