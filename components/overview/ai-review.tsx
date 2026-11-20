@@ -1,15 +1,16 @@
-import Link from "next/link";
-import { AlertTriangle, CheckCircle2, Clock, HelpCircle, Sparkles } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, HelpCircle, Sparkles, Vote } from "lucide-react";
 import { Confetti } from "@/components/confetti";
 import { DecisionReply } from "@/components/overview/decision-reply";
+import { FindingHeader } from "@/components/overview/finding-header";
+import { FindingReview } from "@/components/overview/finding-review";
 import { ReviewButtons } from "@/components/review-buttons";
 import { RunWatcher } from "@/components/run-watcher";
 import { RiskBadge } from "@/components/risk-badge";
 import { ScoreRing } from "@/components/score-ring";
-import { fileAnchor } from "@/components/diff/types";
 import type { PrDetail } from "@/lib/github/pull-request";
 import { timeAgo } from "@/lib/format";
 import { prPath } from "@/lib/paths";
+import type { Answer } from "@/lib/review/answers";
 import type { Finding } from "@/lib/review/types";
 import { cn } from "@/lib/utils";
 
@@ -19,13 +20,7 @@ const VERDICT = {
   COMMENT: { text: "Comments", cls: "bg-sky-500/15 text-sky-700 dark:text-sky-300" },
 };
 
-const SEVERITY = {
-  critical: { text: "Critical", cls: "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300" },
-  warning: { text: "Warning", cls: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300" },
-  suggestion: { text: "Suggestion", cls: "border-border bg-muted text-muted-foreground" },
-};
-
-export function AiReview({ pr, canPush, bar }: { pr: PrDetail; canPush: boolean; bar: number }) {
+export function AiReview({ pr, canPush, bar, answers = {}, isReviewer = false }: { pr: PrDetail; canPush: boolean; bar: number; answers?: Record<number, Answer>; isReviewer?: boolean }) {
   const parsed = pr.review;
   if (!parsed) {
     return (
@@ -46,9 +41,15 @@ export function AiReview({ pr, canPush, bar }: { pr: PrDetail; canPush: boolean;
   }
   const { review, stale, url } = parsed;
   const verdict = VERDICT[review.verdict] ?? VERDICT.COMMENT;
-  const open = review.findings.filter((f) => f.status !== "fixed" && f.status !== "decided");
+  const filesHref = prPath(pr, "files");
+  const answerOf = (f: Finding) => (f.commentId ? answers[f.commentId] : undefined);
+  // rejected by a reviewer: by the bot on a later run, or already replied "Not an issue: …" on its thread
+  const rejection = (f: Finding) => (f.status === "dismissed" ? (f.dismissal ?? "") : f.gate !== "ask" && /^not an issue\b/i.test(answerOf(f)?.body ?? "") ? answerOf(f)!.body.replace(/^not an issue:?\s*/i, "") : null);
+  const dismissed = review.findings.filter((f) => rejection(f) !== null);
+  const open = review.findings.filter((f) => f.status !== "fixed" && f.status !== "decided" && rejection(f) === null);
   const asks = open.filter((f) => f.gate === "ask");
-  const bySeverity = (s: Finding["severity"]) => open.filter((f) => f.severity === s && f.gate !== "ask");
+  // answered on the thread, or already applied by the bot: shown with the decision so the senior sees what was chosen
+  const decided = review.findings.filter((f) => f.gate === "ask" && (f.status === "decided" || (f.status === "fixed" && (f.decision || answerOf(f)))));
 
   return (
     <section aria-labelledby="ai-heading" className="space-y-4">
@@ -101,10 +102,12 @@ export function AiReview({ pr, canPush, bar }: { pr: PrDetail; canPush: boolean;
             <ol className="space-y-4">
               {asks.map((f) => (
                 <li key={f.id} className="rounded-md border border-sky-500/30 bg-sky-500/5 p-3">
-                  <FindingHeader pr={pr} f={f} />
+                  <FindingHeader filesHref={filesHref} f={f} />
                   {f.question && <p className="mt-1.5 text-sm">{f.question}</p>}
                   <div className="mt-3">
-                    {f.commentId ? (
+                    {answerOf(f) ? (
+                      <PendingAnswer answer={answerOf(f)!} canPush={canPush} />
+                    ) : f.commentId ? (
                       <DecisionReply repo={pr.repo} number={pr.number} commentId={f.commentId} options={f.options ?? []} />
                     ) : (
                       <p className="text-xs text-muted-foreground">Reply on the GitHub thread to decide.</p>
@@ -116,21 +119,51 @@ export function AiReview({ pr, canPush, bar }: { pr: PrDetail; canPush: boolean;
           </div>
         )}
 
+        {decided.length > 0 && (
+          <div className="border-b border-border p-5">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+              <Vote className="h-4 w-4 text-emerald-500" aria-hidden="true" />
+              Decisions made ({decided.length})
+            </h3>
+            <ol className="space-y-3">
+              {decided.map((f) => {
+                const a = answerOf(f);
+                return (
+                  <li key={f.id} className="rounded-md border border-border p-3">
+                    <FindingHeader filesHref={filesHref} f={f} />
+                    {f.question && <p className="mt-1.5 text-sm text-muted-foreground">{f.question}</p>}
+                    <p className="mt-1.5 text-sm">
+                      <span className="font-medium">Decision:</span> {f.decision || a?.body}
+                      {a && (
+                        <span className="text-xs text-muted-foreground">
+                          {" "}
+                          · <a href={a.url} target="_blank" rel="noopener noreferrer" className="underline">{a.author}, {timeAgo(a.createdAt)}</a>
+                        </span>
+                      )}
+                      {f.status === "fixed" && <span className="text-xs text-emerald-600 dark:text-emerald-400"> · applied</span>}
+                    </p>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        )}
+
         <div className="p-5">
           <h3 className="mb-3 text-sm font-semibold">Findings</h3>
-          {open.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No open findings.</p>
-          ) : (
-            <ol className="space-y-2">
-              {(["critical", "warning", "suggestion"] as const).flatMap((s) =>
-                bySeverity(s).map((f) => (
-                  <li key={f.id} className="rounded-md border border-border p-3">
-                    <FindingHeader pr={pr} f={f} />
-                    {f.fix && <p className="mt-1 text-sm text-muted-foreground">{f.fix}</p>}
+          <FindingReview findings={open.filter((f) => f.gate !== "ask")} filesHref={filesHref} curate={isReviewer && !stale} repo={pr.repo} number={pr.number} prId={pr.id} />
+          {dismissed.length > 0 && (
+            <div className="mt-4">
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Not an issue, per reviewer ({dismissed.length})</h4>
+              <ul className="space-y-1.5">
+                {dismissed.map((f) => (
+                  <li key={f.id} className="text-sm">
+                    <span className="font-mono text-xs text-muted-foreground">{f.id}</span> <span className="line-through decoration-muted-foreground/60">{f.title}</span>
+                    {rejection(f) && <span className="text-muted-foreground"> · {rejection(f)}</span>}
                   </li>
-                )),
-              )}
-            </ol>
+                ))}
+              </ul>
+            </div>
           )}
           {review.findings.some((f) => f.status === "fixed" || f.status === "decided") && (
             <p className="mt-3 text-xs text-muted-foreground">
@@ -153,24 +186,6 @@ export function AiReview({ pr, canPush, bar }: { pr: PrDetail; canPush: boolean;
   );
 }
 
-function FindingHeader({ pr, f }: { pr: PrDetail; f: Finding }) {
-  const sev = SEVERITY[f.severity];
-  return (
-    <div className="flex flex-wrap items-center gap-2 text-sm">
-      <span className="font-mono text-xs text-muted-foreground">{f.id}</span>
-      <span className={cn("rounded border px-1.5 py-0.5 text-[11px] font-medium", sev.cls)}>{sev.text}</span>
-      <span className="text-xs text-muted-foreground">{f.category}</span>
-      <span className="font-medium">{f.title}</span>
-      {f.path && (
-        <Link href={`${prPath(pr, "files")}#${fileAnchor(f.path)}`} className="ml-auto truncate font-mono text-xs text-primary hover:underline">
-          {f.path}
-          {f.line ? `:${f.line}` : ""}
-        </Link>
-      )}
-    </div>
-  );
-}
-
 function Trajectory({ rounds, bar }: { rounds: { n: number; score: number; fixed: string[] }[]; bar: number }) {
   return (
     <ol className="flex items-end gap-1.5" aria-label="Score per fix round">
@@ -183,5 +198,22 @@ function Trajectory({ rounds, bar }: { rounds: { n: number; score: number; fixed
         </li>
       ))}
     </ol>
+  );
+}
+
+/** An ask answered on the thread but not yet picked up by a bot run: show the answer instead of the reply box. */
+function PendingAnswer({ answer, canPush }: { answer: Answer; canPush: boolean }) {
+  return (
+    <div className="space-y-1 text-sm">
+      <p>
+        <span className="font-medium">Answered:</span> {answer.body}{" "}
+        <span className="text-xs text-muted-foreground">
+          · <a href={answer.url} target="_blank" rel="noopener noreferrer" className="underline">{answer.author}, {timeAgo(answer.createdAt)}</a>
+        </span>
+      </p>
+      <p className="text-xs text-muted-foreground">
+        Not applied yet. {canPush ? "Run Review & fix to have the bot apply it, or make the change yourself and Re-review." : "The PR author can run Review & fix to apply it."} To change the answer, reply again on the GitHub thread; the latest reply counts.
+      </p>
+    </div>
   );
 }

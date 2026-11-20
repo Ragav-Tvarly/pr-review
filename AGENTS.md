@@ -54,6 +54,11 @@ comment verified against PR #2.
 Built but not clicked through in a browser yet: Request review, review dialog submit, merge, thread
 reply/resolve, conversation comment, update branch, live refresh after a run, notification dismiss.
 
+2026-11-20: senior curates the bot's findings on the overview (Include / Not an issue with reason / own
+points → prefilled review; "Not an issue: …" reply on the bot thread makes the next run drop it), and
+answered decisions show to everyone ("Decisions made"). Clicked through to the review dialog on the
+`?preview=review` fixture; submit, the thread reply and the bot honouring it are untested.
+
 ## Next steps (hand-off checklist, `docs/PLAN.md` bottom)
 
 `tvardev` is a **personal** GitHub account, not an org. Vercel is held by the senior dev. Progress on

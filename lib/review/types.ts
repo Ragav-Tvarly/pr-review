@@ -33,8 +33,10 @@ export type Finding = {
   /** GitHub review-comment id, filled by post-review.sh so the dashboard can reply on the thread */
   commentId?: number;
   /** set in later rounds */
-  status?: "open" | "fixed" | "partially-fixed" | "not-fixed" | "decided";
+  status?: "open" | "fixed" | "partially-fixed" | "not-fixed" | "decided" | "dismissed";
   decision?: string;
+  /** why a reviewer rejected the finding ("Not an issue: …" reply on its thread) */
+  dismissal?: string;
 };
 
 export type FileScore = { path: string; importance: number; severity: Severity; reason: string; noise: boolean };

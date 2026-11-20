@@ -3,7 +3,8 @@ import { Checks } from "@/components/overview/checks";
 import { People } from "@/components/overview/people";
 import { Conversation } from "@/components/overview/conversation";
 import { viewer } from "@/lib/github/client";
-import { getPullRequest } from "@/lib/github/pull-request";
+import { getPullRequest, getReviewComments } from "@/lib/github/pull-request";
+import { askAnswers } from "@/lib/review/answers";
 import { scoreBar } from "@/lib/config";
 import { hasRepo } from "@/lib/github/access";
 
@@ -16,7 +17,7 @@ type Params = Promise<{ owner: string; repo: string; number: string }>;
 
 export default async function OverviewPage({ params, searchParams }: { params: Params; searchParams: Promise<{ preview?: string }> }) {
   const { owner, repo, number } = await params;
-  const [prReal, me, { preview }] = await Promise.all([getPullRequest(owner, repo, Number(number)), viewer(), searchParams]);
+  const [prReal, me, { preview }, comments] = await Promise.all([getPullRequest(owner, repo, Number(number)), viewer(), searchParams, getReviewComments(owner, repo, Number(number)).catch(() => [])]);
   let pr = prReal;
   // ponytail: dev-only `?preview=review` shows the fixture review so the panel can be designed before the bot exists.
   if (pr && preview === "review" && devToken()) {
@@ -27,7 +28,7 @@ export default async function OverviewPage({ params, searchParams }: { params: P
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
       <div className="space-y-6">
-        <AiReview pr={pr!} canPush={hasRepo(me.pushRepos, pr!.repo)} bar={scoreBar()} />
+        <AiReview pr={pr!} canPush={hasRepo(me.pushRepos, pr!.repo)} bar={scoreBar()} answers={askAnswers(comments)} isReviewer={me.login.toLowerCase() !== pr!.author.login.toLowerCase()} />
         <article aria-labelledby="description-heading" className="rounded-lg border border-border">
           <h2 id="description-heading" className="border-b border-border px-4 py-2.5 text-sm font-medium">
             Description

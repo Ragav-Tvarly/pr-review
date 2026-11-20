@@ -18,6 +18,8 @@ export function ReviewDialog({
   prId,
   isAuthor,
   threads,
+  initialBody = "",
+  initialEvent,
   onSubmitted,
 }: {
   open: boolean;
@@ -27,10 +29,13 @@ export function ReviewDialog({
   prId: string;
   isAuthor: boolean;
   threads: DraftThread[];
-  onSubmitted?: () => void;
+  /** prefill, e.g. from the findings a reviewer picked; remount (key) to apply new values */
+  initialBody?: string;
+  initialEvent?: ReviewEvent;
+  onSubmitted?: () => void | Promise<void>;
 }) {
-  const [event, setEvent] = useState<ReviewEvent>(isAuthor ? "COMMENT" : "APPROVE");
-  const [body, setBody] = useState("");
+  const [event, setEvent] = useState<ReviewEvent>(isAuthor ? "COMMENT" : (initialEvent ?? "APPROVE"));
+  const [body, setBody] = useState(initialBody);
   const [pending, start] = useTransition();
   const router = useRouter();
   const bodyId = useId();
@@ -40,9 +45,10 @@ export function ReviewDialog({
       const res = await submitReview(repo, number, prId, event, body, threads);
       if (!res.ok) return void toast.error(res.error);
       toast.success(event === "APPROVE" ? "Approved. Nice one." : event === "REQUEST_CHANGES" ? "Changes requested." : "Review posted.");
+      if (res.note) toast.info(res.note);
       setBody("");
       onOpenChange(false);
-      onSubmitted?.();
+      await onSubmitted?.();
       router.refresh();
     });
 
@@ -58,7 +64,7 @@ export function ReviewDialog({
         <div className="space-y-4">
           <div>
             <Label htmlFor={bodyId}>Summary</Label>
-            <Textarea id={bodyId} value={body} onChange={(e) => setBody(e.target.value)} rows={4} placeholder="What stood out, what to change…" className="mt-1.5" />
+            <Textarea id={bodyId} value={body} onChange={(e) => setBody(e.target.value)} rows={initialBody ? 8 : 4} placeholder="What stood out, what to change…" className="mt-1.5" />
           </div>
           <RadioGroup value={event} onValueChange={(v) => setEvent(v as ReviewEvent)} aria-label="Verdict" className="gap-2">
             <RadioRow value="COMMENT" label="Comment" hint="Feedback without a verdict." />

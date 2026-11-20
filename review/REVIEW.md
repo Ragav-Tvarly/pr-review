@@ -60,7 +60,14 @@ git log --oneline --no-merges "origin/$BASE..HEAD"
   (keep their IDs), previous `headSha`, previous `rounds`.
 - Decisions: `gh api "repos/$OWNER/$REPO/pulls/$N/comments?per_page=100" --paginate`. For every prior
   finding with `gate: "ask"` and a `commentId`, look for replies (`in_reply_to_id == commentId`)
-  from a collaborator. A reply is the decision: carry it as `decision` and set `status: "decided"`.
+  from a collaborator other than you. The latest such reply is the decision (an earlier answer can be
+  changed by replying again): carry its text as `decision` and set `status: "decided"`. Keep
+  `decision` on the finding in every later round, including after you apply it and mark it `fixed`;
+  the dashboard shows it to the senior reviewer.
+- Rejections: for every prior finding that is not an ask and has a `commentId`, a collaborator reply
+  starting with `Not an issue` rejects it. Set `status: "dismissed"` and `dismissal` to the reason
+  (the text after `Not an issue:`), keep it in `findings`, never raise it again under any ID, and
+  do not count it in the score. Do not fix dismissed findings in fix mode.
   In fix mode a decided ask becomes actionable with that decision. Unanswered asks stay `ask`.
 - Re-review: if a previous review exists, diff only `prev.headSha..HEAD` for what changed, and for
   each prior finding state `fixed` / `partially-fixed` / `not-fixed` (cite where). Never renumber.
@@ -127,7 +134,8 @@ LEFT only for a deleted line), `title` (one sentence), `fix` (the concrete remed
 
 ### Score and risk
 
-Start at 100. Subtract 25 per critical, 8 per warning, 2 per suggestion (floor 0). If you skipped
+Start at 100. Subtract 25 per critical, 8 per warning, 2 per suggestion (floor 0), counting only
+findings that are still open (not `fixed`, `decided` or `dismissed`). If you skipped
 or skimmed files, cap the score at 85 and say so in `scope.note`. `risk`: `critical` for any
 security/data-loss critical, `high` for other criticals, `important` for ≥ 2 warnings on
 high-importance files, `normal` for other warnings, `low` for suggestions only, `safe` for nothing

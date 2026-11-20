@@ -5,7 +5,7 @@ import { PR_LIST_TAG } from "./pulls";
 import { prTag } from "./pull-request";
 import { graphql, rest, GitHubError } from "./client";
 
-type ActionResult = { ok: true } | { ok: false; error: string };
+type ActionResult = { ok: true; note?: string } | { ok: false; error: string };
 
 function fail(e: unknown): ActionResult {
   return { ok: false, error: e instanceof GitHubError ? e.message : "Something went wrong" };
@@ -50,11 +50,22 @@ export type DraftThread = { path: string; line: number; side: "LEFT" | "RIGHT"; 
 /** One GraphQL call submits the review body, the event and every pending inline comment. */
 export async function submitReview(repo: string, number: number, prId: string, event: ReviewEvent, body: string, threads: DraftThread[]): Promise<ActionResult> {
   if (event !== "APPROVE" && !body.trim() && threads.length === 0) return { ok: false, error: "Write a comment or add an inline comment first" };
-  try {
-    await graphql(
+  const send = (text: string, inline: DraftThread[]) =>
+    graphql(
       `mutation($input: AddPullRequestReviewInput!) { addPullRequestReview(input: $input) { pullRequestReview { id } } }`,
-      { input: { pullRequestId: prId, event, body: body.trim() || undefined, threads: threads.map((t) => ({ path: t.path, line: t.line, side: t.side, body: t.body })) } },
+      { input: { pullRequestId: prId, event, body: text.trim() || undefined, threads: inline.map((t) => ({ path: t.path, line: t.line, side: t.side, body: t.body })) } },
     );
+  try {
+    try {
+      await send(body, threads);
+    } catch (e) {
+      // GitHub rejects the whole review if one line is outside the diff (e.g. a stale bot finding): post the comments in the summary instead
+      if (threads.length === 0 || !(e instanceof GitHubError)) throw e;
+      const listed = threads.map((t) => `**${t.path}:${t.line}**\n${t.body}`).join("\n\n");
+      await send([body.trim(), listed].filter(Boolean).join("\n\n"), []);
+      await revalidatePr(repo, number);
+      return { ok: true, note: "Some lines were no longer in the diff, so the inline comments were added to the review summary instead." };
+    }
     await revalidatePr(repo, number);
     return { ok: true };
   } catch (e) {

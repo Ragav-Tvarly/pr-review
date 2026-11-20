@@ -11,13 +11,13 @@ export function DecisionReply({ repo, number, commentId, options }: { repo: stri
   const [pending, start] = useTransition();
   const [done, setDone] = useState(false);
   const id = useId();
-  if (done) return <p className="text-sm text-emerald-600 dark:text-emerald-400">Decision posted on the thread.</p>;
+  if (done) return <p className="text-sm text-emerald-600 dark:text-emerald-400">Decision posted. Run Review &amp; fix to apply it.</p>;
   const send = () =>
     start(async () => {
       const res = await replyToReviewComment(repo, number, commentId, text);
       if (!res.ok) return void toast.error(res.error);
       setDone(true);
-      toast.success("Reply posted. The next review round will apply it.");
+      toast.success("Decision posted. It is not applied yet: run Review & fix to have the bot apply it, or make the change yourself and Re-review.", { duration: 8000 });
     });
   return (
     <div className="space-y-2">
