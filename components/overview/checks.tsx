@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, CircleDashed, GitMerge, MinusCircle, XCircle } from "lucide-react";
 import type { PrDetail } from "@/lib/github/pull-request";
 import { cn } from "@/lib/utils";
+import { CollapsibleSection } from "@/components/collapsible-section";
 
 const MERGE_STATE: Record<PrDetail["mergeStateStatus"], { text: string; tone: "ok" | "warn" | "bad" | "muted" }> = {
   CLEAN: { text: "Ready to merge", tone: "ok" },
@@ -23,18 +24,16 @@ const TONE = {
 export function Checks({ pr }: { pr: PrDetail }) {
   const merge = MERGE_STATE[pr.mergeStateStatus];
   return (
-    <section aria-labelledby="checks-heading" className="rounded-lg border border-border">
-      <h2 id="checks-heading" className="border-b border-border px-4 py-2.5 text-sm font-medium">
-        Checks and mergeability
-      </h2>
+    <CollapsibleSection id="checks" title="Checks and mergeability">
       <ul className="divide-y divide-border text-sm">
         <li className="flex items-center gap-2 px-4 py-2.5">
           <GitMerge className={cn("h-4 w-4 shrink-0", TONE[merge.tone])} aria-hidden="true" />
           <span>{merge.text}</span>
         </li>
         {pr.checks.contexts.length === 0 && <li className="px-4 py-2.5 text-muted-foreground">No checks reported on the latest commit.</li>}
-        {pr.checks.contexts.map((c) => (
-          <li key={c.name} className="flex items-center gap-2 px-4 py-2.5">
+        {pr.checks.contexts.map((c, i) => (
+          // check names repeat (same job on several platforms or re-runs), so the index keeps keys unique
+          <li key={`${c.name}:${i}`} className="flex items-center gap-2 px-4 py-2.5">
             <CheckIcon state={c.state} />
             {c.url ? (
               <a href={c.url} target="_blank" rel="noopener noreferrer" className="truncate hover:underline">
@@ -46,7 +45,7 @@ export function Checks({ pr }: { pr: PrDetail }) {
           </li>
         ))}
       </ul>
-    </section>
+    </CollapsibleSection>
   );
 }
 

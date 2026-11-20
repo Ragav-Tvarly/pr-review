@@ -64,3 +64,17 @@
     font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   }
 }
+/* GitHub-rendered markdown (descriptions, comments): bot tables put icons and badges inline next to
+   text; prose would otherwise make every image a block with large margins. */
+.prose td img,
+.prose th img,
+.prose p > a > img,
+.prose p > img {
+  display: inline;
+  margin: 0;
+  vertical-align: middle;
+}
+.prose td img,
+.prose th img {
+  max-height: 1.25em;
+}

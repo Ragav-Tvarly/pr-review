@@ -13,10 +13,11 @@ const ERRORS: Record<string, string> = {
   Configuration: "The GitHub OAuth App is not configured on this deployment yet.",
 };
 
-export default async function SignInPage({ searchParams }: { searchParams: Promise<{ error?: string; callbackUrl?: string }> }) {
-  const { error, callbackUrl } = await searchParams;
-  if (devToken() || (await auth())) redirect(callbackUrl && callbackUrl.startsWith("/") ? callbackUrl : "/");
-  const message = error ? (ERRORS[error] ?? "Sign-in failed. Try again.") : null;
+export default async function SignInPage({ searchParams }: { searchParams: Promise<{ error?: string; callbackUrl?: string; expired?: string }> }) {
+  const { error, callbackUrl, expired } = await searchParams;
+  // expired: the cookie is still there but GitHub rejects its token, so stay here and sign in again
+  if (devToken() || (!expired && (await auth()))) redirect(callbackUrl && callbackUrl.startsWith("/") ? callbackUrl : "/");
+  const message = error ? (ERRORS[error] ?? "Sign-in failed. Try again.") : expired ? "Your GitHub sign-in has expired. Sign in again to see your pull requests." : null;
   return (
     <main className="flex min-h-dvh items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8 shadow-sm">

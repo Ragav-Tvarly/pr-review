@@ -13,6 +13,7 @@ import { prPath } from "@/lib/paths";
 import type { Answer } from "@/lib/review/answers";
 import type { Finding } from "@/lib/review/types";
 import { cn } from "@/lib/utils";
+import { CollapsibleSection } from "@/components/collapsible-section";
 
 const VERDICT = {
   APPROVE: { text: "Approve", cls: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" },
@@ -35,7 +36,9 @@ export function AiReview({ pr, canPush, bar, answers = {}, isReviewer = false }:
         <div className="mt-4 flex justify-center gap-2">
           <ReviewButtons repo={pr.repo} number={pr.number} canPush={canPush} bar={bar} hasReview={false} size="default" />
         </div>
-        <RunWatcher repo={pr.repo} number={pr.number} reviewedAt={null} score={null} roundTimes={[]} bar={bar} />
+        <div className="mx-auto mt-4 max-w-md">
+          <RunWatcher repo={pr.repo} number={pr.number} reviewedAt={null} score={null} roundTimes={[]} bar={bar} />
+        </div>
       </section>
     );
   }
@@ -86,13 +89,14 @@ export function AiReview({ pr, canPush, bar, answers = {}, isReviewer = false }:
               </a>
             </p>
             {review.rounds.length > 1 && <Trajectory rounds={review.rounds} bar={bar} />}
+            <RunWatcher repo={pr.repo} number={pr.number} reviewedAt={review.reviewedAt} score={review.score} roundTimes={review.rounds.map((r) => r.at)} bar={bar} />
           </div>
           <div className="flex flex-wrap gap-2 sm:flex-col">
             <ReviewButtons repo={pr.repo} number={pr.number} canPush={canPush} bar={bar} hasReview score={review.score} />
-            <RunWatcher repo={pr.repo} number={pr.number} reviewedAt={review.reviewedAt} score={review.score} roundTimes={review.rounds.map((r) => r.at)} bar={bar} />
           </div>
         </div>
 
+        <CollapsibleSection id="ai-details" bare title={`Findings and decisions · ${open.length} open`}>
         {asks.length > 0 && (
           <div className="border-b border-border p-5">
             <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
@@ -181,6 +185,7 @@ export function AiReview({ pr, canPush, bar, answers = {}, isReviewer = false }:
             </p>
           )}
         </div>
+        </CollapsibleSection>
       </div>
     </section>
   );

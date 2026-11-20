@@ -1,4 +1,5 @@
 import { repos } from "@/lib/config";
+import { expiredSignIn } from "@/lib/github/client";
 
 export type RepoAccess = { repos: string[]; pushRepos: string[] };
 
@@ -13,6 +14,7 @@ export async function repoAccess(token: string): Promise<RepoAccess> {
         headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" },
         cache: "no-store",
       });
+      expiredSignIn(res.status); // a dead token must not be cached as "no access to any repo"
       if (!res.ok) return null;
       const json = (await res.json()) as { permissions?: { push?: boolean } };
       return { repo, push: Boolean(json.permissions?.push) };

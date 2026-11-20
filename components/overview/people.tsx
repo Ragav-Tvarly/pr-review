@@ -2,6 +2,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { PrDetail } from "@/lib/github/pull-request";
 import { timeAgo } from "@/lib/format";
 import { RISK_LABEL_PREFIX } from "@/lib/review/types";
+import { CollapsibleSection } from "@/components/collapsible-section";
 
 const REVIEW_STATE: Record<string, string> = {
   APPROVED: "approved",
@@ -14,10 +15,7 @@ const REVIEW_STATE: Record<string, string> = {
 export function People({ pr }: { pr: PrDetail }) {
   const labels = pr.labels.filter((l) => !l.name.startsWith(RISK_LABEL_PREFIX));
   return (
-    <section aria-labelledby="people-heading" className="rounded-lg border border-border">
-      <h2 id="people-heading" className="border-b border-border px-4 py-2.5 text-sm font-medium">
-        Reviewers
-      </h2>
+    <CollapsibleSection id="people" title="Reviewers">
       <div className="space-y-3 px-4 py-3 text-sm">
         {pr.latestReviews.length === 0 && pr.reviewRequests.length === 0 && <p className="text-muted-foreground">No reviewers yet.</p>}
         {pr.latestReviews.length > 0 && (
@@ -56,6 +54,6 @@ export function People({ pr }: { pr: PrDetail }) {
           </div>
         )}
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }

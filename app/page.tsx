@@ -25,7 +25,7 @@ export default async function DashboardPage() {
           </div>
         )}
         <Suspense>
-          <PrTable prs={prs} viewer={me.login} repos={me.repos} />
+          <PrTable prs={prs} viewer={me.login} repos={me.repos} isSenior={me.seniorRepos.length > 0} />
         </Suspense>
       </main>
       <CommandPalette prs={prs} />

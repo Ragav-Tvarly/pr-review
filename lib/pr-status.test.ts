@@ -1,11 +1,26 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { countTabs, tabsFor } from "./pr-status.ts";
+import { countTabs, tabsFor, visibleTabs } from "./pr-status.ts";
 
 const base = { isDraft: false, reviewDecision: null, author: { login: "ragav", avatarUrl: "" }, reviewRequests: [], latestReviews: [] };
 
-test("my open PR with no review is waiting", () => {
-  assert.deepEqual([...tabsFor(base, "ragav")], ["all", "waiting"]);
+test("my open PR nobody was asked to review is to send", () => {
+  assert.deepEqual([...tabsFor(base, "ragav")], ["all", "to-send"]);
+});
+
+test("my PR with a senior requested is waiting", () => {
+  assert.deepEqual([...tabsFor({ ...base, reviewRequests: ["tvardev"] }, "ragav")], ["all", "waiting"]);
+});
+
+test("changes requested and re-sent to the senior is waiting again, not returned", () => {
+  const pr = { ...base, reviewDecision: "CHANGES_REQUESTED" as const, reviewRequests: ["tvardev"] };
+  assert.deepEqual([...tabsFor(pr, "ragav")], ["all", "waiting"]);
+});
+
+test("devs never see Needs your review; seniors see own-PR tabs only when non-empty", () => {
+  const counts = countTabs([base], "ragav");
+  assert.deepEqual(visibleTabs(counts, false), ["all", "returned", "to-send", "waiting", "approved", "drafts"]);
+  assert.deepEqual(visibleTabs(counts, true), ["all", "needs-review", "to-send", "approved"]);
 });
 
 test("someone else's PR requesting me needs my review", () => {
@@ -23,7 +38,8 @@ test("drafts are never waiting", () => {
 });
 
 test("counts match the screenshot shape: 4 open, 2 waiting, 2 drafts", () => {
-  const prs = [base, base, { ...base, isDraft: true }, { ...base, isDraft: true }];
+  const sent = { ...base, reviewRequests: ["tvardev"] };
+  const prs = [sent, sent, { ...base, isDraft: true }, { ...base, isDraft: true }];
   const c = countTabs(prs, "ragav");
   assert.equal(c.all, 4);
   assert.equal(c.waiting, 2);

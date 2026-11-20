@@ -22,6 +22,18 @@ export type Commit = {
   author: { name: string; login: string | null; avatarUrl: string | null };
 };
 
+export type PrReview = {
+  id: number;
+  author: string;
+  avatarUrl: string;
+  state: "APPROVED" | "CHANGES_REQUESTED" | "COMMENTED" | "DISMISSED" | "PENDING";
+  bodyHTML: string;
+  submittedAt: string;
+  url: string;
+  /** line comments posted with this review; replies to existing threads have isReply */
+  comments: { id: number; path: string; line: number | null; bodyHTML: string; url: string; isReply: boolean }[];
+};
+
 export type PrDetail = {
   id: string;
   number: number;
@@ -52,6 +64,8 @@ export type PrDetail = {
   latestReviews: { author: string; avatarUrl: string; state: string; submittedAt: string; url: string }[];
   files: PrFile[];
   comments: { id: number; author: string; avatarUrl: string; body: string; bodyHTML: string; createdAt: string; url: string }[];
+  /** Submitted human reviews (summary + line comments), oldest first; the bot's are shown in the AI panel instead. */
+  reviews: PrReview[];
   /** Latest bot review parsed from the sticky comment, if any. */
   review: ParsedReview | null;
   commits: Commit[];
@@ -96,6 +110,17 @@ type PullRequestData = {
       latestReviews: { nodes: { author: { login: string; avatarUrl: string } | null; state: string; submittedAt: string; url: string }[] };
       files: { totalCount: number; pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: FileNode[] } | null;
       comments: { nodes: { databaseId: number; author: { login: string; avatarUrl: string } | null; body: string; bodyHTML: string; createdAt: string; url: string }[] };
+      reviews: {
+        nodes: {
+          databaseId: number;
+          author: { login: string; avatarUrl: string } | null;
+          state: PrReview["state"];
+          bodyHTML: string;
+          submittedAt: string | null;
+          url: string;
+          comments: { nodes: { databaseId: number; path: string; line: number | null; originalLine: number | null; bodyHTML: string; url: string; replyTo: { databaseId: number } | null }[] };
+        }[];
+      };
       commits: {
         totalCount: number;
         nodes: {
@@ -210,6 +235,18 @@ async function fetchPullRequest(token: string, owner: string, name: string, numb
     })),
     files: files.map((f) => ({ path: f.path, additions: f.additions, deletions: f.deletions, changeType: f.changeType, viewed: f.viewerViewedState })),
     comments,
+    reviews: pr.reviews.nodes
+      .filter((r) => r.submittedAt && r.author?.login !== "TvarReview" && (r.bodyHTML.trim() || r.comments.nodes.length > 0))
+      .map((r) => ({
+        id: r.databaseId,
+        author: r.author?.login ?? "ghost",
+        avatarUrl: r.author?.avatarUrl ?? "",
+        state: r.state,
+        bodyHTML: r.bodyHTML,
+        submittedAt: r.submittedAt!,
+        url: r.url,
+        comments: r.comments.nodes.map((c) => ({ id: c.databaseId, path: c.path, line: c.line ?? c.originalLine, bodyHTML: c.bodyHTML, url: c.url, isReply: c.replyTo !== null })),
+      })),
     review: findReview(comments, pr.headRefOid),
     commits: pr.commits.nodes.map(({ commit: c }) => ({
       oid: c.oid,

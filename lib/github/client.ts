@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { getToken } from "next-auth/jwt";
 import { devToken, repos, seniorRepos } from "@/lib/config";
 import { repoAccess } from "@/lib/github/access";
@@ -30,6 +31,14 @@ async function userToken(): Promise<string> {
   });
   if (!token?.accessToken) throw new GitHubError(401, "Not signed in");
   return token.accessToken;
+}
+
+/**
+ * GitHub answered 401 for a signed-in user: their token was revoked or expired. Send them to sign in
+ * again instead of rendering an empty dashboard. Never for the dev token (that is a config error).
+ */
+export function expiredSignIn(status: number): void {
+  if (status === 401 && !devToken()) redirect("/signin?expired=1");
 }
 
 let devViewer: Promise<Viewer> | undefined;
@@ -77,7 +86,10 @@ export async function rest<T>(path: string, init: RequestInit & { accept?: strin
       ...init.headers,
     },
   });
-  if (!res.ok) throw new GitHubError(res.status, await errorMessage(res));
+  if (!res.ok) {
+    expiredSignIn(res.status);
+    throw new GitHubError(res.status, await errorMessage(res));
+  }
   if (res.status === 204) return undefined as T;
   if (init.accept && !init.accept.includes("json")) return (await res.text()) as T;
   return (await res.json()) as T;
@@ -91,7 +103,10 @@ export async function graphql<T>(query: string, variables: Record<string, unknow
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({ query, variables }),
   });
-  if (!res.ok) throw new GitHubError(res.status, await errorMessage(res));
+  if (!res.ok) {
+    expiredSignIn(res.status);
+    throw new GitHubError(res.status, await errorMessage(res));
+  }
   const json = (await res.json()) as { data?: T; errors?: { message: string }[] };
   if (json.errors?.length) throw new GitHubError(400, json.errors.map((e) => e.message).join("; "));
   if (!json.data) throw new GitHubError(500, "Empty GraphQL response");

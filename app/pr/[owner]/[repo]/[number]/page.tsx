@@ -12,6 +12,7 @@ import { devToken } from "@/lib/config";
 import { parseMarker } from "@/lib/review/parse";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { CollapsibleSection } from "@/components/collapsible-section";
 
 type Params = Promise<{ owner: string; repo: string; number: string }>;
 
@@ -29,10 +30,7 @@ export default async function OverviewPage({ params, searchParams }: { params: P
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
       <div className="space-y-6">
         <AiReview pr={pr!} canPush={hasRepo(me.pushRepos, pr!.repo)} bar={scoreBar()} answers={askAnswers(comments)} isReviewer={me.login.toLowerCase() !== pr!.author.login.toLowerCase()} />
-        <article aria-labelledby="description-heading" className="rounded-lg border border-border">
-          <h2 id="description-heading" className="border-b border-border px-4 py-2.5 text-sm font-medium">
-            Description
-          </h2>
+        <CollapsibleSection id="description" title="Description">
           {pr!.bodyHTML ? (
             <div
               className="prose prose-sm max-w-none px-4 py-4 dark:prose-invert prose-pre:bg-muted prose-pre:text-foreground prose-a:text-primary"
@@ -42,7 +40,7 @@ export default async function OverviewPage({ params, searchParams }: { params: P
           ) : (
             <p className="px-4 py-6 text-sm text-muted-foreground">No description provided.</p>
           )}
-        </article>
+        </CollapsibleSection>
         <Conversation pr={pr!} />
       </div>
       <aside className="space-y-4">

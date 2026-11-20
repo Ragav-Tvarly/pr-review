@@ -14,7 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { RiskBadge } from "@/components/risk-badge";
 import { ScoreButton } from "@/components/score-button";
 import type { PrSummary } from "@/lib/github/pulls";
-import { countTabs, TABS, tabsFor, type Tab } from "@/lib/pr-status";
+import { countTabs, TABS, tabsFor, visibleTabs, type Tab } from "@/lib/pr-status";
 import { timeAgo, utcStamp } from "@/lib/format";
 import { prPath } from "@/lib/paths";
 import { RISK_LABEL_PREFIX } from "@/lib/review/types";
@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 
 const TAB_IDS = new Set<string>(TABS.map((t) => t.id));
 
-export function PrTable({ prs, viewer, repos }: { prs: PrSummary[]; viewer: string; repos: string[] }) {
+export function PrTable({ prs, viewer, repos, isSenior }: { prs: PrSummary[]; viewer: string; repos: string[]; isSenior: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
   const tabParam = params.get("tab") ?? "all";
@@ -33,6 +33,7 @@ export function PrTable({ prs, viewer, repos }: { prs: PrSummary[]; viewer: stri
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const counts = useMemo(() => countTabs(prs, viewer), [prs, viewer]);
+  const shown = new Set<Tab>([...visibleTabs(counts, isSenior), tab]); // keep a bookmarked tab visible
   const authors = useMemo(() => [...new Set(prs.map((p) => p.author.login))].sort(), [prs]);
 
   const visible = useMemo(() => {
@@ -73,7 +74,7 @@ export function PrTable({ prs, viewer, repos }: { prs: PrSummary[]; viewer: stri
   return (
     <div className="space-y-4">
       <div role="group" aria-label="Filter by status" className="flex flex-wrap gap-2">
-        {TABS.map((t) => (
+        {TABS.filter((t) => shown.has(t.id)).map((t) => (
           <Button
             key={t.id}
             type="button"

@@ -66,6 +66,12 @@ export const PULL_REQUEST = /* GraphQL */ `
           nodes { path additions deletions changeType viewerViewedState }
         }
         comments(last: 50) { nodes { databaseId author { login avatarUrl } body bodyHTML createdAt url } }
+        reviews(last: 30) {
+          nodes {
+            databaseId author { login avatarUrl } state bodyHTML submittedAt url
+            comments(first: 50) { nodes { databaseId path line originalLine bodyHTML url replyTo { databaseId } } }
+          }
+        }
         commits(first: 100) {
           totalCount
           nodes {
