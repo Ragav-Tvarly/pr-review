@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { addPrComment } from "@/lib/github/actions";
 import Link from "next/link";
 import { fileAnchor } from "@/components/diff/types";
-import type { PrDetail, PrReview } from "@/lib/github/pull-request";
+import type { PrDetail, PrReview, ReviewThread } from "@/lib/github/pull-request";
 import { prPath } from "@/lib/paths";
 import { cn } from "@/lib/utils";
 import { timeAgo } from "@/lib/format";
@@ -105,21 +105,16 @@ export function Conversation({ pr }: { pr: PrDetail }) {
                   {it.r.bodyHTML.trim() || it.r.state !== "COMMENTED" ? (
                     <span className={cn("rounded-full px-1.5 py-0.5 text-[11px] font-medium", VERB[it.r.state].cls)}>{VERB[it.r.state].text}</span>
                   ) : (
-                    <span>{it.r.comments.every((c) => c.isReply) ? "replied on a thread" : "commented on the code"}</span>
+                    <span>commented on the code</span>
                   )}
                   · <a href={it.r.url} target="_blank" rel="noopener noreferrer" className="hover:underline" suppressHydrationWarning>{timeAgo(it.r.submittedAt)}</a>
                 </p>
                 {it.r.bodyHTML.trim() && <Html html={it.r.bodyHTML} />}
-                {it.r.comments.length > 0 && (
+                {it.r.threads.length > 0 && (
                   <ul className="mt-2 space-y-2">
-                    {it.r.comments.map((c) => (
-                      <li key={c.id} className="rounded-md border border-border bg-muted/30 px-3 py-2">
-                        <Link href={`${filesHref}#${fileAnchor(c.path)}`} className="font-mono text-xs text-primary hover:underline">
-                          {c.path}
-                          {c.line ? `:${c.line}` : ""}
-                        </Link>
-                        {c.isReply && <span className="ml-2 text-[11px] text-muted-foreground">reply</span>}
-                        <Html html={c.bodyHTML} />
+                    {it.r.threads.map((t) => (
+                      <li key={t.comments[0]!.id}>
+                        <Thread thread={t} filesHref={filesHref} />
                       </li>
                     ))}
                   </ul>
@@ -133,9 +128,9 @@ export function Conversation({ pr }: { pr: PrDetail }) {
   );
 }
 
-function Who({ login, avatarUrl }: { login: string; avatarUrl: string }) {
+function Who({ login, avatarUrl, small = false }: { login: string; avatarUrl: string; small?: boolean }) {
   return (
-    <Avatar className="mt-0.5 h-6 w-6">
+    <Avatar className={small ? "h-4 w-4" : "mt-0.5 h-6 w-6"}>
       <AvatarImage src={avatarUrl} alt="" />
       <AvatarFallback className="text-[10px]">{login.slice(0, 2).toUpperCase()}</AvatarFallback>
     </Avatar>
@@ -149,5 +144,59 @@ function Html({ html }: { html: string }) {
       // GitHub renders and sanitises bodyHTML server-side.
       dangerouslySetInnerHTML={{ __html: html }}
     />
+  );
+}
+
+/** One line-comment thread: where it is, the first comment, then the replies indented under it. Resolved threads start folded. */
+function Thread({ thread, filesHref }: { thread: ReviewThread; filesHref: string }) {
+  const [first, ...replies] = thread.comments;
+  const where = (
+    <Link href={`${filesHref}#${fileAnchor(thread.path)}`} className="truncate font-mono text-xs text-primary hover:underline">
+      {thread.path}
+      {thread.line ? `:${thread.line}` : ""}
+    </Link>
+  );
+  const body = (
+    <div className="space-y-2 px-3 pb-2.5">
+      {first && <Html html={first.bodyHTML} />}
+      {replies.length > 0 && (
+        <ol className="space-y-2 border-l-2 border-border pl-3" aria-label="Replies">
+          {replies.map((c) => (
+            <li key={c.id}>
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Who login={c.author} avatarUrl={c.avatarUrl} small />
+                <span className="font-medium text-foreground">{c.author}</span> ·{" "}
+                <a href={c.url} target="_blank" rel="noopener noreferrer" className="hover:underline" suppressHydrationWarning>
+                  {timeAgo(c.createdAt)}
+                </a>
+              </p>
+              <Html html={c.bodyHTML} />
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+  const count = replies.length > 0 ? `${replies.length} ${replies.length === 1 ? "reply" : "replies"}` : null;
+  if (thread.resolved)
+    return (
+      <details className="group/thread rounded-md border border-border bg-muted/20">
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs [&::-webkit-details-marker]:hidden">
+          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">Resolved</span>
+          {where}
+          {count && <span className="text-muted-foreground">· {count}</span>}
+          <span className="ml-auto text-muted-foreground group-open/thread:hidden">Show</span>
+        </summary>
+        {body}
+      </details>
+    );
+  return (
+    <div className="rounded-md border border-border bg-muted/30">
+      <p className="flex items-center gap-2 px-3 pt-2 text-xs">
+        {where}
+        {count && <span className="text-muted-foreground">· {count}</span>}
+      </p>
+      {body}
+    </div>
   );
 }

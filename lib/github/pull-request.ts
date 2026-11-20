@@ -30,8 +30,15 @@ export type PrReview = {
   bodyHTML: string;
   submittedAt: string;
   url: string;
-  /** line comments posted with this review; replies to existing threads have isReply */
-  comments: { id: number; path: string; line: number | null; bodyHTML: string; url: string; isReply: boolean }[];
+  /** line-comment threads this review started, with every reply since (from anyone) */
+  threads: ReviewThread[];
+};
+
+export type ReviewThread = {
+  path: string;
+  line: number | null;
+  resolved: boolean;
+  comments: { id: number; author: string; avatarUrl: string; bodyHTML: string; createdAt: string; url: string }[];
 };
 
 export type PrDetail = {
@@ -119,7 +126,15 @@ type PullRequestData = {
           bodyHTML: string;
           submittedAt: string | null;
           url: string;
-          comments: { nodes: { databaseId: number; path: string; line: number | null; originalLine: number | null; bodyHTML: string; url: string; replyTo: { databaseId: number } | null }[] };
+        }[];
+      };
+      reviewThreads: {
+        nodes: {
+          isResolved: boolean;
+          path: string;
+          line: number | null;
+          originalLine: number | null;
+          comments: { nodes: { databaseId: number; author: { login: string; avatarUrl: string } | null; bodyHTML: string; createdAt: string; url: string; pullRequestReview: { databaseId: number } | null }[] };
         }[];
       };
       commits: {
@@ -235,18 +250,7 @@ async function fetchPullRequest(token: string, owner: string, name: string, numb
     })),
     files: files.map((f) => ({ path: f.path, additions: f.additions, deletions: f.deletions, changeType: f.changeType, viewed: f.viewerViewedState })),
     comments,
-    reviews: pr.reviews.nodes
-      .filter((r) => r.submittedAt && r.author?.login !== "TvarReview" && (r.bodyHTML.trim() || r.comments.nodes.length > 0))
-      .map((r) => ({
-        id: r.databaseId,
-        author: r.author?.login ?? "ghost",
-        avatarUrl: r.author?.avatarUrl ?? "",
-        state: r.state,
-        bodyHTML: r.bodyHTML,
-        submittedAt: r.submittedAt!,
-        url: r.url,
-        comments: r.comments.nodes.map((c) => ({ id: c.databaseId, path: c.path, line: c.line ?? c.originalLine, bodyHTML: c.bodyHTML, url: c.url, isReply: c.replyTo !== null })),
-      })),
+    reviews: humanReviews(pr.reviews.nodes, pr.reviewThreads.nodes),
     review: findReview(comments, pr.headRefOid) ?? (pr.comments.totalCount > comments.length ? await olderReview(owner, name, pr.number, pr.headRefOid, token) : null),
     commits: pr.commits.nodes.map(({ commit: c }) => ({
       oid: c.oid,
@@ -370,4 +374,41 @@ async function olderReview(owner: string, name: string, number: number, headSha:
     if (batch.length < 100) break;
   }
   return findReview(all, headSha);
+}
+
+/**
+ * Human reviews for the conversation, each with the line-comment threads it started (a thread belongs to
+ * the review of its first comment; replies stay inside the thread). Reviews that only replied to threads
+ * are dropped since those replies show in their threads. The bot's reviews are in the AI panel instead.
+ */
+type RawPr = NonNullable<NonNullable<PullRequestData["repository"]>["pullRequest"]>;
+
+function humanReviews(reviews: RawPr["reviews"]["nodes"], threads: RawPr["reviewThreads"]["nodes"]): PrReview[] {
+  const byReview = new Map<number, ReviewThread[]>();
+  for (const t of threads) {
+    const first = t.comments.nodes[0];
+    const reviewId = first?.pullRequestReview?.databaseId;
+    if (!first || reviewId == null) continue;
+    const list = byReview.get(reviewId) ?? [];
+    list.push({
+      path: t.path,
+      line: t.line ?? t.originalLine,
+      resolved: t.isResolved,
+      comments: t.comments.nodes.map((c) => ({ id: c.databaseId, author: c.author?.login ?? "ghost", avatarUrl: c.author?.avatarUrl ?? "", bodyHTML: c.bodyHTML, createdAt: c.createdAt, url: c.url })),
+    });
+    byReview.set(reviewId, list);
+  }
+  return reviews
+    .filter((r) => r.submittedAt && r.author?.login !== "TvarReview")
+    .map((r) => ({
+      id: r.databaseId,
+      author: r.author?.login ?? "ghost",
+      avatarUrl: r.author?.avatarUrl ?? "",
+      state: r.state,
+      bodyHTML: r.bodyHTML,
+      submittedAt: r.submittedAt!,
+      url: r.url,
+      threads: byReview.get(r.databaseId) ?? [],
+    }))
+    .filter((r) => r.bodyHTML.trim() || r.threads.length > 0 || r.state !== "COMMENTED");
 }

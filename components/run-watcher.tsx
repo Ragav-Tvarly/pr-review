@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
@@ -23,6 +23,27 @@ function save(repo: string, number: number, run: Run | null) {
 /** Called by the Run review / Review & fix buttons right after a successful fire. */
 export function startRun(repo: string, number: number, mode: Run["mode"], score: number | null) {
   save(repo, number, { at: Date.now(), mode, score });
+}
+
+export const RUN_MAX_MS = MAX_MS;
+
+function allRuns(): string {
+  try {
+    const out: Record<string, number> = {};
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const k = sessionStorage.key(i);
+      if (k?.startsWith("tvar-run:")) out[k.slice("tvar-run:".length)] = (JSON.parse(sessionStorage.getItem(k)!) as Run).at;
+    }
+    return JSON.stringify(out);
+  } catch {
+    return "{}";
+  }
+}
+
+/** Start times of the bot runs fired from this tab, keyed "owner/repo#number" (for the PR list). */
+export function useRunStarts(): Record<string, number> {
+  const raw = useSyncExternalStore(subscribe, allRuns, () => "{}");
+  return useMemo(() => JSON.parse(raw) as Record<string, number>, [raw]);
 }
 
 function subscribe(cb: () => void) {

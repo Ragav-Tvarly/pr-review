@@ -70,8 +70,14 @@ export async function viewer(): Promise<Viewer> {
 export async function cachedRead<T>(keyParts: string[], tags: string[], fn: (token: string) => Promise<T>, revalidate = 30): Promise<T> {
   const token = await userToken();
   const { login } = await viewer();
-  return unstable_cache(() => fn(token), ["gh", login, ...keyParts], { revalidate, tags })();
+  return unstable_cache(() => fn(token), ["gh", CACHE_SHAPE, login, ...keyParts], { revalidate, tags })();
 }
+
+/**
+ * Bump when the shape of cached data changes (e.g. a new field on PrDetail), so a deploy or a running dev
+ * server never hands new code an entry saved by old code.
+ */
+const CACHE_SHAPE = "2026-11-20.threads";
 
 export async function rest<T>(path: string, init: RequestInit & { accept?: string; token?: string } = {}): Promise<T> {
   const token = init.token ?? (await userToken());

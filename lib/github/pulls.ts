@@ -24,6 +24,8 @@ export type PrSummary = {
   labels: { name: string; color: string }[];
   reviewRequests: string[];
   latestReviews: { author: string; state: string }[];
+  /** when the review bot last posted a review here (its result lands as a review) */
+  botReviewedAt: string | null;
   checks: CheckState;
   risk: Risk | null;
 };
@@ -47,7 +49,7 @@ type OpenPullRequestsData = {
         author: { login: string; avatarUrl: string } | null;
         labels: { nodes: { name: string; color: string }[] };
         reviewRequests: { nodes: { requestedReviewer: { login?: string } | null }[] };
-        latestReviews: { nodes: { author: { login: string } | null; state: string }[] };
+        latestReviews: { nodes: { author: { login: string } | null; state: string; submittedAt: string | null }[] };
         commits: { nodes: { commit: { statusCheckRollup: { state: CheckState } | null } }[] };
       }>;
     };
@@ -90,6 +92,7 @@ async function fetchOpenPRs(token: string, repos: string[]): Promise<PrSummary[]
             .map((n) => n.requestedReviewer?.login ?? "")
             .filter(Boolean),
           latestReviews: pr.latestReviews.nodes.map((r) => ({ author: r.author?.login ?? "", state: r.state })),
+          botReviewedAt: pr.latestReviews.nodes.find((r) => r.author?.login === "TvarReview")?.submittedAt ?? null,
           checks: pr.commits.nodes[0]?.commit.statusCheckRollup?.state ?? null,
           risk: riskFromLabels(labels.map((l) => l.name)),
         };

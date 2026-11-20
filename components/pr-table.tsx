@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CheckCircle2, CircleDashed, GitPullRequest, GitPullRequestDraft, Search, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleDashed, GitPullRequest, GitPullRequestDraft, Loader2, Search, XCircle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { RiskBadge } from "@/components/risk-badge";
 import { ScoreButton } from "@/components/score-button";
+import { RUN_MAX_MS, useRunStarts } from "@/components/run-watcher";
 import type { PrSummary } from "@/lib/github/pulls";
 import { countTabs, TABS, tabsFor, visibleTabs, type Tab } from "@/lib/pr-status";
 import { timeAgo, utcStamp } from "@/lib/format";
@@ -33,6 +34,24 @@ export function PrTable({ prs, viewer, repos, isSenior }: { prs: PrSummary[]; vi
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const counts = useMemo(() => countTabs(prs, viewer), [prs, viewer]);
+  // bot runs fired from this tab (Score all / Run review): "Reviewing…" until the bot's review lands
+  const runs = useRunStarts();
+  const [now, setNow] = useState(() => Date.now());
+  const runState = (pr: PrSummary): "running" | "no-result" | null => {
+    const at = runs[`${pr.repo}#${pr.number}`];
+    if (!at || (pr.botReviewedAt && Date.parse(pr.botReviewedAt) > at)) return null;
+    return now - at > RUN_MAX_MS ? "no-result" : "running";
+  };
+  const anyRunning = prs.some((pr) => runState(pr) === "running");
+  useEffect(() => {
+    if (!anyRunning) return;
+    const refresh = setInterval(() => router.refresh(), 20_000);
+    const tick = setInterval(() => setNow(Date.now()), 15_000);
+    return () => {
+      clearInterval(refresh);
+      clearInterval(tick);
+    };
+  }, [anyRunning, router]);
   const shown = new Set<Tab>([...visibleTabs(counts, isSenior), tab]); // keep a bookmarked tab visible
   const authors = useMemo(() => [...new Set(prs.map((p) => p.author.login))].sort(), [prs]);
 
@@ -211,7 +230,7 @@ export function PrTable({ prs, viewer, repos, isSenior }: { prs: PrSummary[]; vi
                     </span>
                   </TableCell>
                   <TableCell>
-                    <RiskBadge risk={pr.risk} />
+                    <RunCell state={runState(pr)} risk={pr.risk} />
                   </TableCell>
                   <TableCell className="hidden lg:table-cell">
                     <span className="flex flex-wrap gap-1">
@@ -276,4 +295,22 @@ function ChecksIcon({ state }: { state: PrSummary["checks"] }) {
       <TooltipContent>{map.text}</TooltipContent>
     </Tooltip>
   );
+}
+
+function RunCell({ state, risk }: { state: "running" | "no-result" | null; risk: PrSummary["risk"] }) {
+  if (state === "running")
+    return (
+      <span role="status" className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-primary">
+        <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+        Reviewing…
+      </span>
+    );
+  if (state === "no-result")
+    return (
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-amber-700 dark:text-amber-300" title="No review after 25 minutes; the run probably failed. Open the PR for details.">
+        <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+        No result
+      </span>
+    );
+  return <RiskBadge risk={risk} />;
 }

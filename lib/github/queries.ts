@@ -20,7 +20,7 @@ export const OPEN_PULL_REQUESTS = /* GraphQL */ `
           reviewRequests(first: 10) {
             nodes { requestedReviewer { ... on User { login } } }
           }
-          latestReviews(first: 10) { nodes { author { login } state } }
+          latestReviews(first: 10) { nodes { author { login } state submittedAt } }
           commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
         }
       }
@@ -82,10 +82,11 @@ export const PULL_REQUEST = /* GraphQL */ `
             }
           }
         }
-        reviews(last: 30) {
+        reviews(last: 30) { nodes { databaseId author { login avatarUrl } state bodyHTML submittedAt url } }
+        reviewThreads(first: 100) {
           nodes {
-            databaseId author { login avatarUrl } state bodyHTML submittedAt url
-            comments(first: 50) { nodes { databaseId path line originalLine bodyHTML url replyTo { databaseId } } }
+            isResolved path line originalLine
+            comments(first: 50) { nodes { databaseId author { login avatarUrl } bodyHTML createdAt url pullRequestReview { databaseId } } }
           }
         }
         commits(first: 100) {

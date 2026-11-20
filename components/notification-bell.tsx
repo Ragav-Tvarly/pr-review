@@ -10,7 +10,10 @@ import { timeAgo } from "@/lib/format";
 import { prPath } from "@/lib/paths";
 import { cn } from "@/lib/utils";
 
-/** The user's GitHub inbox for the enabled repos, linking into the dashboard. Polls every 30 s while visible. */
+/**
+ * The user's GitHub inbox for the enabled repos, linking into the dashboard. Polls every 60 s while the tab
+ * is visible (one GitHub call per poll; per-PR lookups are cached) and right away when the tab comes back.
+ */
 export function NotificationBell() {
   const [items, setItems] = useState<Notice[] | null>(null);
   const router = useRouter();
@@ -19,7 +22,7 @@ export function NotificationBell() {
   }, []);
   useEffect(() => {
     load();
-    const t = setInterval(load, 30_000);
+    const t = setInterval(load, 60_000);
     document.addEventListener("visibilitychange", load);
     return () => {
       clearInterval(t);

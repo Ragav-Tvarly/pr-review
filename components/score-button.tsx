@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { PrSummary } from "@/lib/github/pulls";
 import { fireReviews } from "@/lib/review/fire";
+import { startRun } from "@/components/run-watcher";
 
 export const NOT_CONFIGURED = "The review task is not connected yet. Set ROUTINE_FIRE_URL and ROUTINE_FIRE_TOKEN from the scheduled task owned by admin@tvarlaunchpad.com.";
 
@@ -29,10 +30,11 @@ export function ScoreButton({ selected, all }: { selected: PrSummary[]; all: PrS
           return;
         }
         fired += res.fired.length;
+        for (const n of res.fired) startRun(repo, n, "review", null);
         for (const f of res.failed) toast.error(`#${f.number}: ${f.error}`);
       }
       if (fired > 0) {
-        toast.success(`Review started for ${fired} ${fired === 1 ? "PR" : "PRs"}. Results land on GitHub in a few minutes.`);
+        toast.success(`Review started for ${fired} ${fired === 1 ? "PR" : "PRs"}. Each shows "Reviewing…" in the Risk column until its result lands.`);
         router.refresh();
       }
     });
